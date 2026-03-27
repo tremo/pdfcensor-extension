@@ -35,6 +35,38 @@ export default defineContentScript({
       let scanDebounceTimer: ReturnType<typeof setTimeout> | null = null;
       const toast = createToast();
 
+      const scanText = (text: string) => {
+        scanState = "SCANNING";
+        const message: ScanTextMessage = { type: "SCAN_TEXT", text };
+
+        browser.runtime.sendMessage(message).then((raw: unknown) => {
+          const response = raw as ScanResponse;
+          if (!response || response.type !== "SCAN_RESULT") {
+            scanState = "IDLE";
+            return;
+          }
+
+          if (response.limitReached) {
+            scanState = "IDLE";
+            toast.showLimit();
+            return;
+          }
+
+          pendingMatches = response.matches;
+
+          if (response.totalCount > 0) {
+            scanState = "DETECTED";
+            toast.showWarning(response.totalCount);
+          } else {
+            scanState = "IDLE";
+            toast.hide();
+          }
+        }).catch((err: unknown) => {
+          console.error("[PDFcensor] Scan failed:", err);
+          scanState = "IDLE";
+        });
+      };
+
       // Observe input changes — debounced to avoid spam
       const cleanup = adapter.observe(() => {
         try {
@@ -97,38 +129,6 @@ export default defineContentScript({
 
         return false; // block send
       });
-
-      const scanText = (text: string) => {
-        scanState = "SCANNING";
-        const message: ScanTextMessage = { type: "SCAN_TEXT", text };
-
-        browser.runtime.sendMessage(message).then((raw: unknown) => {
-          const response = raw as ScanResponse;
-          if (!response || response.type !== "SCAN_RESULT") {
-            scanState = "IDLE";
-            return;
-          }
-
-          if (response.limitReached) {
-            scanState = "IDLE";
-            toast.showLimit();
-            return;
-          }
-
-          pendingMatches = response.matches;
-
-          if (response.totalCount > 0) {
-            scanState = "DETECTED";
-            toast.showWarning(response.totalCount);
-          } else {
-            scanState = "IDLE";
-            toast.hide();
-          }
-        }).catch((err: unknown) => {
-          console.error("[PDFcensor] Scan failed:", err);
-          scanState = "IDLE";
-        });
-      };
 
       // Cleanup on navigation
       window.addEventListener("beforeunload", () => {
