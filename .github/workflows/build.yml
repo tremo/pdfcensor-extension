@@ -45,9 +45,9 @@ jobs:
             VERSION="${{ github.event.inputs.version }}"
           fi
           mkdir -p release
-          cp .output/*-chrome-mv3.zip "release/pdfcensor-chrome-v${VERSION}.zip"
-          cp .output/*-chrome-mv3.zip "release/pdfcensor-edge-v${VERSION}.zip"
-          cp .output/*-firefox-mv2.zip "release/pdfcensor-firefox-v${VERSION}.zip"
+          cp .output/*-chrome.zip "release/pdfcensor-chrome-v${VERSION}.zip"
+          cp .output/*-chrome.zip "release/pdfcensor-edge-v${VERSION}.zip"
+          cp .output/*-firefox.zip "release/pdfcensor-firefox-v${VERSION}.zip"
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
