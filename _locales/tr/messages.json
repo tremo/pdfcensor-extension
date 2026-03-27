@@ -1,0 +1,31 @@
+{
+  "extName": {
+    "message": "PDFcensor — AI Gizlilik Koruyucusu",
+    "description": "Extension name"
+  },
+  "extDescription": {
+    "message": "ChatGPT, Claude, Gemini gibi AI sohbet botlarına göndermeden önce hassas kişisel verileri (PII) otomatik tespit eder ve maskeler.",
+    "description": "Extension description"
+  },
+  "piiDetected": {
+    "message": "$COUNT$ hassas veri tespit edildi",
+    "placeholders": {
+      "count": { "content": "$1" }
+    }
+  },
+  "maskButton": {
+    "message": "Maskele"
+  },
+  "ignoreButton": {
+    "message": "Yoksay"
+  },
+  "reviewButton": {
+    "message": "İncele"
+  },
+  "dailyLimitReached": {
+    "message": "Günlük ücretsiz tarama limitinize ulaştınız. Pro'ya geçin."
+  },
+  "proUpgrade": {
+    "message": "Pro'ya Yükselt"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "extName": {
+    "message": "PDFcensor — AI Privacy Guard",
+    "description": "Extension name"
+  },
+  "extDescription": {
+    "message": "Automatically detects and redacts sensitive personal data (PII) before you send it to AI chatbots.",
+    "description": "Extension description"
+  },
+  "piiDetected": {
+    "message": "$COUNT$ sensitive data detected",
+    "placeholders": {
+      "count": { "content": "$1" }
+    }
+  },
+  "maskButton": {
+    "message": "Mask"
+  },
+  "ignoreButton": {
+    "message": "Ignore"
+  },
+  "reviewButton": {
+    "message": "Review"
+  },
+  "dailyLimitReached": {
+    "message": "Daily free scan limit reached. Upgrade to Pro."
+  },
+  "proUpgrade": {
+    "message": "Upgrade to Pro"
+  }
+}
