@@ -10,6 +10,7 @@
     "build:firefox": "wxt build --browser firefox",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip --browser firefox",
+    "zip:edge": "wxt zip",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
