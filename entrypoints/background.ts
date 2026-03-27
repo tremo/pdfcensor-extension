@@ -41,7 +41,7 @@ export default defineBackground(() => {
 
   // browser.alarms for persistent periodic Pro check (survives MV3 worker restart)
   browser.alarms.create(PRO_CHECK_ALARM, { periodInMinutes: 60 });
-  browser.alarms.onAlarm.addListener((alarm) => {
+  browser.alarms.onAlarm.addListener((alarm: { name: string }) => {
     if (alarm.name === PRO_CHECK_ALARM) {
       verifyProStatus().catch((err) =>
         console.error("[PDFcensor] Periodic Pro check failed:", err)

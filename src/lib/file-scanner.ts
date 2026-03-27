@@ -46,6 +46,7 @@ async function extractText(file: File): Promise<string> {
  */
 async function extractPdfText(file: File): Promise<string> {
   // Dynamic import — pdf.js must be added as a dependency
+  // @ts-expect-error pdfjs-dist is loaded at runtime from extension bundle
   const pdfjsLib = await import("pdfjs-dist");
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
