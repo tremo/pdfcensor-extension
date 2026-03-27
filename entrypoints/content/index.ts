@@ -71,7 +71,7 @@ export default defineContentScript({
           matchCount: pendingMatches.length,
           onMask: () => {
             const message: ScanTextMessage = { type: "SCAN_TEXT", text: adapter.getMessageText() };
-            browser.runtime.sendMessage(message).then((raw) => {
+            browser.runtime.sendMessage(message).then((raw: unknown) => {
               const response = raw as ScanResponse;
               if (response?.masked) {
                 adapter.setMessageText(response.masked);
@@ -79,7 +79,7 @@ export default defineContentScript({
                 scanState = "MASKED";
                 toast.hide();
               }
-            }).catch((err) => {
+            }).catch((err: unknown) => {
               console.error("[PDFcensor] Mask request failed:", err);
             });
           },
@@ -98,11 +98,11 @@ export default defineContentScript({
         return false; // block send
       });
 
-      function scanText(text: string) {
+      const scanText = (text: string) => {
         scanState = "SCANNING";
         const message: ScanTextMessage = { type: "SCAN_TEXT", text };
 
-        browser.runtime.sendMessage(message).then((raw) => {
+        browser.runtime.sendMessage(message).then((raw: unknown) => {
           const response = raw as ScanResponse;
           if (!response || response.type !== "SCAN_RESULT") {
             scanState = "IDLE";
@@ -124,11 +124,11 @@ export default defineContentScript({
             scanState = "IDLE";
             toast.hide();
           }
-        }).catch((err) => {
+        }).catch((err: unknown) => {
           console.error("[PDFcensor] Scan failed:", err);
           scanState = "IDLE";
         });
-      }
+      };
 
       // Cleanup on navigation
       window.addEventListener("beforeunload", () => {
