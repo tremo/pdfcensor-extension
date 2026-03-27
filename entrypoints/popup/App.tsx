@@ -1,3 +1,4 @@
+import { browser } from "wxt/browser";
 import React, { useEffect, useState } from "react";
 import Toggle from "./components/Toggle";
 import Stats from "./components/Stats";
@@ -13,10 +14,10 @@ export default function App() {
   const [usage, setUsage] = useState<UsageResponse | null>(null);
 
   useEffect(() => {
-    chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (res) => {
+    browser.runtime.sendMessage({ type: "GET_SETTINGS" }).then((res: any) => {
       if (res?.settings) setSettings(res.settings);
     });
-    chrome.runtime.sendMessage({ type: "CHECK_USAGE" }, (res) => {
+    browser.runtime.sendMessage({ type: "CHECK_USAGE" }).then((res: any) => {
       if (res) setUsage(res);
     });
   }, []);
@@ -43,7 +44,7 @@ export default function App() {
           enabled={settings.enabled}
           onChange={(enabled) => {
             setSettings({ ...settings, enabled });
-            chrome.storage.local.set({
+            browser.storage.local.set({
               settings: { ...settings, enabled },
             });
           }}

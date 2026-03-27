@@ -1,3 +1,4 @@
+import { browser, type Runtime } from "wxt/browser";
 import { getSettings, incrementUsage, getUsage, recordScan } from "../src/lib/storage";
 import { getProStatus, verifyProStatus, login, logout, getUserInfo } from "../src/lib/auth";
 import { detectPII } from "../src/lib/pii/detector";
@@ -23,26 +24,24 @@ let scanInProgress = false;
 
 export default defineBackground(() => {
   // Message handler with sender validation
-  chrome.runtime.onMessage.addListener(
-    (message: Message, sender, sendResponse) => {
+  browser.runtime.onMessage.addListener(
+    (message: unknown, sender: Runtime.MessageSender) => {
       // Validate sender — only allow from our content scripts or popup
       if (!isValidSender(sender)) {
         console.warn("[PDFcensor] Rejected message from:", sender.url);
-        sendResponse({ type: "ERROR", error: "Unauthorized" });
-        return true;
+        return Promise.resolve({ type: "ERROR", error: "Unauthorized" });
       }
 
-      handleMessage(message, sender).then(sendResponse).catch((err) => {
+      return handleMessage(message as Message, sender).catch((err) => {
         console.error("[PDFcensor] Message handler error:", err);
-        sendResponse({ type: "ERROR", error: "Internal error" });
+        return { type: "ERROR", error: "Internal error" };
       });
-      return true; // async response
     }
   );
 
-  // chrome.alarms for persistent periodic Pro check (survives MV3 worker restart)
-  chrome.alarms.create(PRO_CHECK_ALARM, { periodInMinutes: 60 });
-  chrome.alarms.onAlarm.addListener((alarm) => {
+  // browser.alarms for persistent periodic Pro check (survives MV3 worker restart)
+  browser.alarms.create(PRO_CHECK_ALARM, { periodInMinutes: 60 });
+  browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === PRO_CHECK_ALARM) {
       verifyProStatus().catch((err) =>
         console.error("[PDFcensor] Periodic Pro check failed:", err)
@@ -56,13 +55,13 @@ export default defineBackground(() => {
   );
 });
 
-function isValidSender(sender: chrome.runtime.MessageSender): boolean {
+function isValidSender(sender: Runtime.MessageSender): boolean {
   // Allow messages from our own extension (popup, options)
-  if (sender.id === chrome.runtime.id && !sender.url?.startsWith("http")) {
+  if (sender.id === browser.runtime.id && !sender.url?.startsWith("http")) {
     return true;
   }
-  // Allow from popup (chrome-extension:// URLs)
-  if (sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}`)) {
+  // Allow from popup (chrome-extension:// or moz-extension:// URLs)
+  if (sender.url?.startsWith(browser.runtime.getURL("/popup.html").replace("/popup.html", ""))) {
     return true;
   }
   // Allow from approved content script origins
@@ -74,7 +73,7 @@ function isValidSender(sender: chrome.runtime.MessageSender): boolean {
 
 async function handleMessage(
   message: Message,
-  sender: chrome.runtime.MessageSender
+  sender: Runtime.MessageSender
 ): Promise<unknown> {
   // Runtime type check
   if (!message || typeof message.type !== "string") {

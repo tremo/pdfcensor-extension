@@ -6,20 +6,22 @@
  *
  * LOGIN AKIŞI:
  *   1. Kullanıcı popup'tan "Giriş Yap" butonuna tıklar
- *   2. chrome.identity.launchWebAuthFlow() ile pdfcensor.com/login açılır
+ *   2. browser.identity.launchWebAuthFlow() ile pdfcensor.com/login açılır
  *   3. Login sonrası pdfcensor.com/auth/extension-callback redirect'i
  *      URL hash'inde Supabase access_token ve refresh_token döner
- *   4. Extension token'ları chrome.storage.local'e kaydeder
+ *   4. Extension token'ları browser.storage.local'e kaydeder
  *
  * PRO DOĞRULAMA:
  *   1. Extension background worker chrome.alarms ile periyodik (1 saat) verify çağırır
  *   2. POST /api/extension/verify — Bearer token ile
- *   3. Sonuç cache'lenir (chrome.storage.local)
+ *   3. Sonuç cache'lenir (browser.storage.local)
  *
  * TOKEN YENİLEME:
  *   - Access token süresi dolunca web app'teki /api/extension/refresh proxy endpoint'i kullanılır
  *   - Refresh de başarısız olursa kullanıcı tekrar login yapmalı
  */
+
+import { browser } from "wxt/browser";
 
 const API_BASE = "https://pdfcensor.com";
 const VERIFY_ENDPOINT = `${API_BASE}/api/extension/verify`;
@@ -42,16 +44,16 @@ interface ProStatusCache {
 }
 
 export async function getTokens(): Promise<AuthTokens | null> {
-  const result = await chrome.storage.local.get("authTokens");
+  const result = await browser.storage.local.get("authTokens") as Record<string, any>;
   return result.authTokens ?? null;
 }
 
 export async function saveTokens(tokens: AuthTokens): Promise<void> {
-  await chrome.storage.local.set({ authTokens: tokens });
+  await browser.storage.local.set({ authTokens: tokens });
 }
 
 export async function clearTokens(): Promise<void> {
-  await chrome.storage.local.remove(["authTokens", "proStatus"]);
+  await browser.storage.local.remove(["authTokens", "proStatus"]);
 }
 
 export async function isLoggedIn(): Promise<boolean> {
@@ -63,13 +65,13 @@ export async function isLoggedIn(): Promise<boolean> {
 
 export async function login(): Promise<boolean> {
   try {
-    const redirectUrl = chrome.identity.getRedirectURL("callback");
+    const redirectUrl = browser.identity.getRedirectURL("callback");
     const authUrl =
       `${API_BASE}/login?` +
       `redirect_to=${encodeURIComponent(redirectUrl)}` +
       `&source=extension`;
 
-    const responseUrl = await chrome.identity.launchWebAuthFlow({
+    const responseUrl = await browser.identity.launchWebAuthFlow({
       url: authUrl,
       interactive: true,
     });
@@ -206,7 +208,7 @@ export async function verifyProStatus(): Promise<boolean> {
       expiresAt: data.expiresAt,
       timestamp: Date.now(),
     };
-    await chrome.storage.local.set({ proStatus });
+    await browser.storage.local.set({ proStatus });
 
     return data.isPro;
   } catch (error) {
@@ -219,7 +221,7 @@ export async function verifyProStatus(): Promise<boolean> {
  * Cache'den Pro durumunu oku. Cache expired ise verify çağır.
  */
 export async function getProStatus(): Promise<boolean> {
-  const result = await chrome.storage.local.get("proStatus");
+  const result = await browser.storage.local.get("proStatus") as Record<string, any>;
   const cached = result.proStatus as ProStatusCache | undefined;
 
   if (cached && Date.now() - cached.timestamp < PRO_CACHE_TTL) {
@@ -240,7 +242,7 @@ export async function getUserInfo(): Promise<{
     return { isLoggedIn: false, isPro: false, email: null, subscriptionExpiresAt: null };
   }
 
-  const result = await chrome.storage.local.get("proStatus");
+  const result = await browser.storage.local.get("proStatus") as Record<string, any>;
   const cached = result.proStatus as ProStatusCache | undefined;
 
   return {
