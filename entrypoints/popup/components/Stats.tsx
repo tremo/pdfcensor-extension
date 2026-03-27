@@ -1,3 +1,4 @@
+import { browser } from "wxt/browser";
 import React, { useEffect, useState } from "react";
 import type { StatsData } from "../../../src/utils/messaging";
 import { PII_LABELS } from "../../../src/lib/pii/types";
@@ -6,7 +7,7 @@ export default function Stats() {
   const [stats, setStats] = useState<StatsData | null>(null);
 
   useEffect(() => {
-    chrome.storage.local.get("stats").then((result) => {
+    (browser.storage.local.get("stats") as Promise<Record<string, any>>).then((result) => {
       setStats(
         result.stats || {
           totalScans: 0,

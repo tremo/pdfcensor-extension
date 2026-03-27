@@ -1,3 +1,4 @@
+import { browser } from "wxt/browser";
 import { getAdapter } from "../../src/adapters";
 import { createToast } from "../../src/ui/toast";
 import type { ScanResponse, ScanTextMessage } from "../../src/utils/messaging";
@@ -70,17 +71,16 @@ export default defineContentScript({
           matchCount: pendingMatches.length,
           onMask: () => {
             const message: ScanTextMessage = { type: "SCAN_TEXT", text: adapter.getMessageText() };
-            chrome.runtime.sendMessage(message, (response: ScanResponse) => {
-              if (chrome.runtime.lastError) {
-                console.error("[PDFcensor] Mask request failed:", chrome.runtime.lastError);
-                return;
-              }
+            browser.runtime.sendMessage(message).then((raw) => {
+              const response = raw as ScanResponse;
               if (response?.masked) {
                 adapter.setMessageText(response.masked);
                 pendingMatches = [];
                 scanState = "MASKED";
                 toast.hide();
               }
+            }).catch((err) => {
+              console.error("[PDFcensor] Mask request failed:", err);
             });
           },
           onIgnore: () => {
@@ -102,12 +102,8 @@ export default defineContentScript({
         scanState = "SCANNING";
         const message: ScanTextMessage = { type: "SCAN_TEXT", text };
 
-        chrome.runtime.sendMessage(message, (response: ScanResponse) => {
-          if (chrome.runtime.lastError) {
-            console.error("[PDFcensor] Scan failed:", chrome.runtime.lastError);
-            scanState = "IDLE";
-            return;
-          }
+        browser.runtime.sendMessage(message).then((raw) => {
+          const response = raw as ScanResponse;
           if (!response || response.type !== "SCAN_RESULT") {
             scanState = "IDLE";
             return;
@@ -128,6 +124,9 @@ export default defineContentScript({
             scanState = "IDLE";
             toast.hide();
           }
+        }).catch((err) => {
+          console.error("[PDFcensor] Scan failed:", err);
+          scanState = "IDLE";
         });
       }
 

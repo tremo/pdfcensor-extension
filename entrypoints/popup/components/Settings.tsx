@@ -1,3 +1,4 @@
+import { browser } from "wxt/browser";
 import React from "react";
 import type { ExtensionSettings } from "../../../src/utils/messaging";
 import { regulations } from "../../../src/lib/pii/regulations";
@@ -13,7 +14,7 @@ export default function Settings({ settings, onUpdate, isPro }: SettingsProps) {
   function update(partial: Partial<ExtensionSettings>) {
     const updated = { ...settings, ...partial };
     onUpdate(updated);
-    chrome.storage.local.set({ settings: updated });
+    browser.storage.local.set({ settings: updated });
   }
 
   return (

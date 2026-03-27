@@ -1,3 +1,4 @@
+import { browser } from "wxt/browser";
 import type { PIIMatch } from "../types";
 
 let nameDictionary: Set<string> | null = null;
@@ -12,7 +13,7 @@ export async function loadNameDictionaries(locales: string[]): Promise<void> {
   const results = await Promise.allSettled(
     locales.map(async (locale) => {
       try {
-        const url = chrome.runtime.getURL(`dictionaries/names-${locale}.json`);
+        const url = (browser.runtime.getURL as (path: string) => string)(`dictionaries/names-${locale}.json`);
         const response = await fetch(url);
         if (response.ok) return (await response.json()) as string[];
       } catch {
