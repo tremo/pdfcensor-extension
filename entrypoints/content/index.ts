@@ -1,6 +1,7 @@
 import { browser } from "wxt/browser";
 import { getAdapter } from "../../src/adapters";
 import { createToast } from "../../src/ui/toast";
+import { extractText } from "../../src/lib/file-scanner";
 import type { ScanResponse, ScanTextMessage, ScanFileMessage, FileWarningResponse, ExtensionSettings, PlatformId } from "../../src/utils/messaging";
 import { AVAILABLE_PLATFORMS } from "../../src/utils/messaging";
 import type { PIIMatch } from "../../src/lib/pii/types";
@@ -174,22 +175,15 @@ export default defineContentScript({
         if (!files || files.length === 0) return;
 
         for (const file of Array.from(files)) {
-          // Support txt, csv, pdf, docx
-          const name = file.name.toLowerCase();
-          const supported =
-            name.endsWith(".txt") || name.endsWith(".csv") ||
-            name.endsWith(".pdf") || name.endsWith(".docx") ||
-            file.type.startsWith("text/");
-
-          if (!supported) continue;
-
           try {
-            const arrayBuffer = await file.arrayBuffer();
+            // Extract text in the content script (has access to File + dynamic imports)
+            const text = await extractText(file);
+            if (!text) continue;
+
             const message: ScanFileMessage = {
               type: "SCAN_FILE",
               fileName: file.name,
-              fileData: arrayBuffer,
-              mimeType: file.type,
+              text,
             };
 
             const raw = await browser.runtime.sendMessage(message);

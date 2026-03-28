@@ -93,7 +93,7 @@ async function handleMessage(
       return handleScanText(message.text, sender.url);
 
     case "SCAN_FILE":
-      return handleScanFile(message.fileData, message.fileName, message.mimeType, sender.url);
+      return handleScanFile(message.text, message.fileName, sender.url);
 
     case "UPDATE_SETTINGS": {
       const updated = await updateSettings(message.settings);
@@ -221,66 +221,21 @@ async function handleScanText(text: string, senderUrl?: string): Promise<ScanRes
 
 /**
  * Handle file scan — NO daily limit applied to file scanning.
- * Extracts text from the file buffer and runs PII detection.
+ * Text extraction happens in the content script; we receive pre-extracted text.
  */
 async function handleScanFile(
-  fileData: ArrayBuffer,
+  text: string,
   fileName: string,
-  mimeType: string,
   senderUrl?: string
 ): Promise<FileWarningResponse> {
-  const settings = await getSettings();
-
-  // Extract text from file data based on mime type
-  let text = "";
-  const name = fileName.toLowerCase();
-
-  if (mimeType.startsWith("text/") || name.endsWith(".txt") || name.endsWith(".csv")) {
-    text = new TextDecoder().decode(fileData);
-  } else if (mimeType === "application/pdf" || name.endsWith(".pdf")) {
-    // PDF extraction via pdfjs-dist
-    try {
-      // @ts-expect-error pdfjs-dist loaded at runtime
-      const pdfjsLib = await import("pdfjs-dist");
-      const pdf = await pdfjsLib.getDocument({ data: fileData }).promise;
-      const pages: string[] = [];
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        pages.push(content.items.map((item: { str?: string }) => item.str || "").join(" "));
-      }
-      text = pages.join("\n\n");
-    } catch {
-      text = "";
-    }
-  } else if (
-    mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-    name.endsWith(".docx")
-  ) {
-    try {
-      const JSZip = (await import("jszip")).default;
-      const zip = await JSZip.loadAsync(fileData);
-      const docXml = await zip.file("word/document.xml")?.async("string");
-      if (docXml) {
-        const parts: string[] = [];
-        const regex = /<w:t[^>]*>([\s\S]*?)<\/w:t>/g;
-        let match;
-        while ((match = regex.exec(docXml)) !== null) {
-          parts.push(match[1]);
-        }
-        text = parts.join(" ");
-      }
-    } catch {
-      text = "";
-    }
-  }
-
   if (!text) {
     return { type: "FILE_WARNING", fileName, piiCount: 0, matches: [] };
   }
 
+  const settings = await getSettings();
+
   // Determine PII types to scan
-  let piiTypes = settings.enabledPiiTypes.length > 0
+  const piiTypes = settings.enabledPiiTypes.length > 0
     ? settings.enabledPiiTypes
     : getRegulationPatterns(settings.regulation);
 
