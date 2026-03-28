@@ -1,6 +1,6 @@
 import { browser, type Runtime } from "wxt/browser";
 import { getSettings, updateSettings, recordScan } from "../src/lib/storage";
-import { getProStatus, verifyProStatus, login, logout, getUserInfo, handleAuthTokenFromContentScript } from "../src/lib/auth";
+import { getProStatus, verifyProStatus, login, logout, getUserInfo, handleAuthTokenFromContentScript, tryDetectSessionFromCookies } from "../src/lib/auth";
 import { detectPII } from "../src/lib/pii/detector";
 import { getRegulationPatterns } from "../src/lib/pii/regulations";
 import { maskText } from "../src/lib/masker";
@@ -55,10 +55,14 @@ export default defineBackground(() => {
     }
   });
 
-  // Initial Pro check on startup
-  verifyProStatus().catch((err) =>
-    console.error("[OfflineRedact] Initial Pro check failed:", err)
-  );
+  // Initial check: try to detect session from offlineredact.com cookies,
+  // then verify Pro status. This auto-detects login if user is already
+  // logged in on the website.
+  tryDetectSessionFromCookies()
+    .then(() => verifyProStatus())
+    .catch((err) =>
+      console.error("[OfflineRedact] Initial session/Pro check failed:", err)
+    );
 });
 
 function isValidSender(sender: Runtime.MessageSender): boolean {
