@@ -2,6 +2,7 @@ import { browser } from "wxt/browser";
 import React, { useEffect, useState } from "react";
 import type { StatsData } from "../../../src/utils/messaging";
 import { PII_LABELS } from "../../../src/lib/pii/types";
+import { t } from "../../../src/lib/i18n";
 
 export default function Stats() {
   const [stats, setStats] = useState<StatsData | null>(null);
@@ -24,17 +25,15 @@ export default function Stats() {
 
   return (
     <div className="space-y-4">
-      {/* Summary cards */}
       <div className="grid grid-cols-3 gap-2">
-        <StatCard label="Tarama" value={stats.totalScans} />
-        <StatCard label="PII" value={stats.totalPiiFound} />
-        <StatCard label="Maskeli" value={stats.totalMasked} />
+        <StatCard label={t("scans")} value={stats.totalScans} />
+        <StatCard label={t("pii")} value={stats.totalPiiFound} />
+        <StatCard label={t("masked")} value={stats.totalMasked} />
       </div>
 
-      {/* By type */}
       {Object.keys(stats.byType).length > 0 && (
         <div className="bg-gray-900 rounded-lg p-3">
-          <div className="text-sm text-gray-400 mb-2">Tipe Gore</div>
+          <div className="text-sm text-gray-400 mb-2">{t("byType")}</div>
           {Object.entries(stats.byType).map(([type, count]) => (
             <div key={type} className="flex justify-between text-sm py-1">
               <span className="text-gray-300">
@@ -46,10 +45,9 @@ export default function Stats() {
         </div>
       )}
 
-      {/* By site */}
       {Object.keys(stats.bySite).length > 0 && (
         <div className="bg-gray-900 rounded-lg p-3">
-          <div className="text-sm text-gray-400 mb-2">Siteye Gore</div>
+          <div className="text-sm text-gray-400 mb-2">{t("bySite")}</div>
           {Object.entries(stats.bySite).map(([site, count]) => (
             <div key={site} className="flex justify-between text-sm py-1">
               <span className="text-gray-300">{site}</span>

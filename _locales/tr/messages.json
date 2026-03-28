@@ -1,6 +1,6 @@
 {
   "extName": {
-    "message": "PDFcensor — AI Gizlilik Koruyucusu",
+    "message": "OfflineRedact — AI Gizlilik Koruyucusu",
     "description": "Extension name"
   },
   "extDescription": {
@@ -21,9 +21,6 @@
   },
   "reviewButton": {
     "message": "İncele"
-  },
-  "dailyLimitReached": {
-    "message": "Günlük ücretsiz tarama limitinize ulaştınız. Pro'ya geçin."
   },
   "proUpgrade": {
     "message": "Pro'ya Yükselt"

@@ -1,4 +1,5 @@
 import type { PIIMatch } from "../lib/pii/types";
+import { t, detectLocale } from "../lib/i18n";
 
 export interface ToastActions {
   matchCount: number;
@@ -27,7 +28,7 @@ export interface ToastController {
 
 const TOAST_STYLES = `
   :host { all: initial; }
-  .pdfcensor-toast {
+  .or-toast {
     position: fixed;
     bottom: 24px;
     right: 24px;
@@ -173,7 +174,10 @@ function btn(className: string, text: string, onClick: () => void): HTMLElement 
 }
 
 export function createToast(): ToastController {
-  const host = document.createElement("pdfcensor-toast");
+  // Init locale detection for toast strings
+  detectLocale();
+
+  const host = document.createElement("offlineredact-toast");
   const shadow = host.attachShadow({ mode: "closed" });
 
   const style = document.createElement("style");
@@ -181,7 +185,7 @@ export function createToast(): ToastController {
   shadow.appendChild(style);
 
   const container = document.createElement("div");
-  container.className = "pdfcensor-toast";
+  container.className = "or-toast";
   shadow.appendChild(container);
 
   document.body.appendChild(host);
@@ -198,16 +202,14 @@ export function createToast(): ToastController {
       const card = el("div", { className: "toast-card" }, [
         el("div", { className: "toast-header" }, [
           el("span", { className: "toast-icon" }, ["\u26a0"]),
-          el("span", { className: "toast-title" }, [`${actions.matchCount} hassas veri tespit edildi`]),
+          el("span", { className: "toast-title" }, [t("piiDetected", { COUNT: actions.matchCount })]),
           closeBtn,
         ]),
-        el("div", { className: "toast-body" }, [
-          "Mesaj\u0131n\u0131zda ki\u015fisel veriler bulundu. G\u00f6ndermeden \u00f6nce maskelemek ister misiniz?",
-        ]),
+        el("div", { className: "toast-body" }, [t("personalDataInMessage")]),
         el("div", { className: "toast-actions" }, [
-          btn("btn-mask", "Maskele", actions.onMask),
-          btn("btn-ignore", "Yoksay", actions.onIgnore),
-          btn("btn-review", "\u0130ncele", actions.onReview),
+          btn("btn-mask", t("mask"), actions.onMask),
+          btn("btn-ignore", t("ignore"), actions.onIgnore),
+          btn("btn-review", t("review"), actions.onReview),
         ]),
       ]);
 
@@ -218,21 +220,16 @@ export function createToast(): ToastController {
     showWarning(count: number) {
       clear();
       const text = count === 0
-        ? "\u26a0 Taran\u0131yor..."
-        : `\u26a0 ${count} hassas veri tespit edildi \u2014 g\u00f6ndermeden \u00f6nce kontrol edin.`;
+        ? `\u26a0 ${t("scanningText")}`
+        : `\u26a0 ${t("piiDetectedCheck", { COUNT: count })}`;
       container.appendChild(
         el("div", { className: "toast-warning" }, [text])
       );
     },
 
     showLimit() {
+      // No longer used — scanning is unlimited
       clear();
-      container.appendChild(
-        el("div", { className: "toast-limit" }, [
-          "G\u00fcnl\u00fck \u00fccretsiz tarama limitinize ula\u015ft\u0131n\u0131z. Pro'ya ge\u00e7in.",
-        ])
-      );
-      setTimeout(() => this.hide(), 5000);
     },
 
     showDetails(matches: PIIMatch[]) {
@@ -255,7 +252,7 @@ export function createToast(): ToastController {
       container.appendChild(
         el("div", { className: "toast-card" }, [
           el("div", { className: "toast-header" }, [
-            el("span", { className: "toast-title" }, [`Tespit Edilen Veriler (${matches.length})`]),
+            el("span", { className: "toast-title" }, [`${t("detectedData")} (${matches.length})`]),
             closeBtn,
           ]),
           list,
@@ -266,7 +263,7 @@ export function createToast(): ToastController {
     showFileWarning(actions: FileWarningActions) {
       clear();
 
-      const closeBtn = el("button", { className: "toast-close" }, ["×"]);
+      const closeBtn = el("button", { className: "toast-close" }, ["\u00d7"]);
       closeBtn.addEventListener("click", actions.onDismiss);
 
       const matchPreview = el("div", { className: "file-matches-preview" });
@@ -283,29 +280,27 @@ export function createToast(): ToastController {
       if (actions.matches.length > 5) {
         matchPreview.appendChild(
           el("div", { className: "detail-item" }, [
-            el("span", { className: "detail-value" }, [`+${actions.matches.length - 5} daha...`]),
+            el("span", { className: "detail-value" }, [t("more", { COUNT: actions.matches.length - 5 })]),
           ])
         );
       }
 
       const card = el("div", { className: "toast-card file-warning-card" }, [
         el("div", { className: "toast-header" }, [
-          el("span", { className: "file-icon" }, ["📄"]),
-          el("span", { className: "toast-title" }, ["Dosya Yükleme Uyarısı"]),
+          el("span", { className: "file-icon" }, ["\ud83d\udcc4"]),
+          el("span", { className: "toast-title" }, [t("fileUploadWarning")]),
           closeBtn,
         ]),
         el("div", { className: "toast-body" }, [
           el("div", { className: "file-name" }, [actions.fileName]),
           el("div", { className: "file-pii-count" }, [
-            `${actions.piiCount} kişisel veri tespit edildi!`,
+            t("piiFoundInFile", { COUNT: actions.piiCount }),
           ]),
-          el("div", { className: "file-pii-label" }, [
-            "Bu dosyada hassas kişisel veriler bulunuyor. Yüklemeden önce sansürlenmesi önerilir.",
-          ]),
+          el("div", { className: "file-pii-label" }, [t("fileContainsPii")]),
         ]),
         ...(actions.piiCount > 0 ? [matchPreview] : []),
-        btn("btn-pro", "🔒 Otomatik Sansürle — Pro'ya Geç", actions.onUpgradePro),
-        btn("btn-dismiss", "Yoksay ve devam et", actions.onDismiss),
+        btn("btn-pro", `\ud83d\udd12 ${t("autoRedactPro")}`, actions.onUpgradePro),
+        btn("btn-dismiss", t("dismissAndContinue"), actions.onDismiss),
       ]);
 
       container.appendChild(card);

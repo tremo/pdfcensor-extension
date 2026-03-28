@@ -2,8 +2,10 @@ name: Build & Release Extension
 
 on:
   push:
+    branches: ["**"]
     tags:
       - "v*"
+  pull_request:
   workflow_dispatch:
     inputs:
       version:
@@ -38,16 +40,46 @@ jobs:
       - name: Build Firefox zip
         run: npm run zip:firefox
 
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "ver=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "ver=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ver=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Prepare release artifacts
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          fi
+          VERSION="${{ steps.version.outputs.ver }}"
           mkdir -p release
-          cp .output/*-chrome.zip "release/pdfcensor-chrome-v${VERSION}.zip"
-          cp .output/*-chrome.zip "release/pdfcensor-edge-v${VERSION}.zip"
-          cp .output/*-firefox.zip "release/pdfcensor-firefox-v${VERSION}.zip"
+          cp .output/*-chrome.zip "release/offlineredact-chrome-v${VERSION}.zip"
+          cp .output/*-chrome.zip "release/offlineredact-edge-v${VERSION}.zip"
+          cp .output/*-firefox.zip "release/offlineredact-firefox-v${VERSION}.zip"
+
+      # Always upload artifacts so you can download from any push
+      - name: Upload Chrome extension
+        uses: actions/upload-artifact@v5
+        with:
+          name: offlineredact-chrome-v${{ steps.version.outputs.ver }}
+          path: .output/chrome-mv3/
+          retention-days: 30
+
+      - name: Upload Firefox extension
+        uses: actions/upload-artifact@v5
+        with:
+          name: offlineredact-firefox-v${{ steps.version.outputs.ver }}
+          path: .output/firefox-mv3/
+          retention-days: 30
+
+      - name: Upload release zips
+        uses: actions/upload-artifact@v5
+        with:
+          name: offlineredact-zips-v${{ steps.version.outputs.ver }}
+          path: release/*.zip
+          retention-days: 30
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -55,10 +87,3 @@ jobs:
         with:
           generate_release_notes: true
           files: release/*.zip
-
-      - name: Upload artifacts (manual trigger)
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v5
-        with:
-          name: extension-zips-v${{ github.event.inputs.version }}
-          path: release/*.zip

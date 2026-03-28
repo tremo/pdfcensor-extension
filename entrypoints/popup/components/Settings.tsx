@@ -5,6 +5,7 @@ import { AVAILABLE_PLATFORMS } from "../../../src/utils/messaging";
 import { regulations } from "../../../src/lib/pii/regulations";
 import { PII_LABELS } from "../../../src/lib/pii/types";
 import type { RegulationType, PIIType } from "../../../src/lib/pii/types";
+import { t } from "../../../src/lib/i18n";
 
 interface SettingsProps {
   settings: ExtensionSettings;
@@ -48,14 +49,13 @@ export default function Settings({ settings, onUpdate, isPro }: SettingsProps) {
     update({ customKeywords: (settings.customKeywords || []).filter((k) => k !== kw) });
   }
 
-  // Get all PII types for the current regulation
   const regulationTypes = regulations[settings.regulation]?.patterns || [];
 
   return (
     <div className="space-y-5">
       {/* Regulation selector */}
       <div>
-        <label className="text-sm text-gray-400 block mb-1">Regulasyon Profili</label>
+        <label className="text-sm text-gray-400 block mb-1">{t("regulationProfile")}</label>
         <select
           value={settings.regulation}
           onChange={(e) => update({ regulation: e.target.value as RegulationType })}
@@ -77,7 +77,7 @@ export default function Settings({ settings, onUpdate, isPro }: SettingsProps) {
 
       {/* Platform selection */}
       <div>
-        <label className="text-sm text-gray-400 block mb-2">Aktif Platformlar</label>
+        <label className="text-sm text-gray-400 block mb-2">{t("activePlatforms")}</label>
         <div className="space-y-1.5">
           {AVAILABLE_PLATFORMS.map((platform) => (
             <label
@@ -88,9 +88,11 @@ export default function Settings({ settings, onUpdate, isPro }: SettingsProps) {
                 type="checkbox"
                 checked={(settings.enabledPlatforms || []).includes(platform.id)}
                 onChange={() => togglePlatform(platform.id)}
-                className="w-4 h-4 rounded border-gray-600 text-teal-500 focus:ring-teal-500 accent-teal-500"
+                className="w-4 h-4 rounded border-gray-600 accent-teal-500"
               />
-              <span className="text-gray-200">{platform.label}</span>
+              <span className="text-gray-200">
+                {platform.id === "generic" ? t("otherSites") : platform.label}
+              </span>
             </label>
           ))}
         </div>
@@ -98,10 +100,8 @@ export default function Settings({ settings, onUpdate, isPro }: SettingsProps) {
 
       {/* PII type selection */}
       <div>
-        <label className="text-sm text-gray-400 block mb-1">Tespit Edilecek Veri Tipleri</label>
-        <p className="text-xs text-gray-600 mb-2">
-          Boş bırakılırsa regulasyon profiline göre otomatik seçilir.
-        </p>
+        <label className="text-sm text-gray-400 block mb-1">{t("detectionTypes")}</label>
+        <p className="text-xs text-gray-600 mb-2">{t("detectionTypesHint")}</p>
         <div className="max-h-48 overflow-y-auto bg-gray-900 rounded-lg p-2 space-y-1">
           {regulationTypes.map((type) => (
             <label
@@ -123,14 +123,12 @@ export default function Settings({ settings, onUpdate, isPro }: SettingsProps) {
       {/* Custom keywords (Pro only) */}
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <label className="text-sm text-gray-400">Özel Anahtar Kelimeler</label>
+          <label className="text-sm text-gray-400">{t("customKeywords")}</label>
           {!isPro && (
             <span className="text-[10px] bg-teal-600 px-1.5 py-0.5 rounded font-medium text-white">PRO</span>
           )}
         </div>
-        <p className="text-xs text-gray-600 mb-2">
-          Tespit edilmesini istediğiniz özel kelimeleri ekleyin.
-        </p>
+        <p className="text-xs text-gray-600 mb-2">{t("customKeywordsHint")}</p>
         {isPro ? (
           <>
             <div className="flex gap-2 mb-2">
@@ -139,14 +137,14 @@ export default function Settings({ settings, onUpdate, isPro }: SettingsProps) {
                 value={newKeyword}
                 onChange={(e) => setNewKeyword(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addKeyword()}
-                placeholder="Kelime girin..."
+                placeholder={t("addKeywordPlaceholder")}
                 className="flex-1 bg-gray-900 text-white border border-gray-700 rounded-lg px-3 py-1.5 text-sm placeholder:text-gray-600"
               />
               <button
                 onClick={addKeyword}
                 className="bg-teal-600 hover:bg-teal-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
               >
-                Ekle
+                {t("add")}
               </button>
             </div>
             {(settings.customKeywords || []).length > 0 && (
@@ -161,7 +159,7 @@ export default function Settings({ settings, onUpdate, isPro }: SettingsProps) {
                       onClick={() => removeKeyword(kw)}
                       className="text-gray-500 hover:text-red-400 font-bold"
                     >
-                      ×
+                      {"\u00d7"}
                     </button>
                   </span>
                 ))}
@@ -170,12 +168,12 @@ export default function Settings({ settings, onUpdate, isPro }: SettingsProps) {
           </>
         ) : (
           <a
-            href="https://pdfcensor.com/pricing"
+            href="https://offlineredact.com/en/pricing"
             target="_blank"
             rel="noopener noreferrer"
             className="block text-center bg-teal-600/20 border border-teal-600/40 hover:bg-teal-600/30 text-teal-400 text-xs font-medium py-2 rounded-lg transition-colors"
           >
-            Özel kelime eklemek için Pro'ya geçin →
+            {t("customKeywordsProCta")}
           </a>
         )}
       </div>
@@ -183,10 +181,8 @@ export default function Settings({ settings, onUpdate, isPro }: SettingsProps) {
       {/* Auto-mask toggle */}
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-sm font-medium">Otomatik Maskeleme</div>
-          <div className="text-xs text-gray-500">
-            PII tespit edildiginde otomatik maskele
-          </div>
+          <div className="text-sm font-medium">{t("autoMask")}</div>
+          <div className="text-xs text-gray-500">{t("autoMaskDesc")}</div>
         </div>
         <button
           onClick={() => isPro && update({ autoMask: !settings.autoMask })}
@@ -210,10 +206,8 @@ export default function Settings({ settings, onUpdate, isPro }: SettingsProps) {
       {/* Notifications toggle */}
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-sm font-medium">Bildirimler</div>
-          <div className="text-xs text-gray-500">
-            PII tespit edildiginde uyari goster
-          </div>
+          <div className="text-sm font-medium">{t("notifications")}</div>
+          <div className="text-xs text-gray-500">{t("notificationsDesc")}</div>
         </div>
         <button
           onClick={() => update({ showNotifications: !settings.showNotifications })}

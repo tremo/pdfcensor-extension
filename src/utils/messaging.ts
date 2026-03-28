@@ -55,12 +55,10 @@ export interface ScanResponse {
   matches: PIIMatch[];
   totalCount: number;
   masked?: string;
-  limitReached?: boolean;
 }
 
 export interface UsageResponse {
   type: "USAGE_STATUS";
-  remaining: number;
   isPro: boolean;
 }
 
@@ -109,7 +107,7 @@ export const AVAILABLE_PLATFORMS: PlatformOption[] = [
   { id: "notion", label: "Notion", hostnames: ["notion.so"] },
   { id: "slack", label: "Slack", hostnames: ["app.slack.com"] },
   { id: "discord", label: "Discord", hostnames: ["discord.com"] },
-  { id: "generic", label: "Diğer siteler", hostnames: [] },
+  { id: "generic", label: "Other sites", hostnames: [] },
 ];
 
 export interface ExtensionSettings {

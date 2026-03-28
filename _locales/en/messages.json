@@ -1,6 +1,6 @@
 {
   "extName": {
-    "message": "PDFcensor — AI Privacy Guard",
+    "message": "OfflineRedact — AI Privacy Guard",
     "description": "Extension name"
   },
   "extDescription": {
@@ -21,9 +21,6 @@
   },
   "reviewButton": {
     "message": "Review"
-  },
-  "dailyLimitReached": {
-    "message": "Daily free scan limit reached. Upgrade to Pro."
   },
   "proUpgrade": {
     "message": "Upgrade to Pro"
