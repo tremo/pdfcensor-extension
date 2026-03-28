@@ -22,7 +22,7 @@ function isPlatformEnabled(hostname: string, enabledPlatforms: PlatformId[]): bo
   if (!enabledPlatforms || enabledPlatforms.length === 0) return true;
 
   const platform = AVAILABLE_PLATFORMS.find((p) =>
-    p.hostnames.some((h) => h && hostname.includes(h))
+    p.hostnames.some((h) => hostname === h || hostname.endsWith(`.${h}`))
   );
 
   // If it's a known platform, check if it's enabled
