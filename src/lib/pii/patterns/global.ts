@@ -61,17 +61,23 @@ export function detectPhone(text: string, pageIndex: number): PIIMatch[] {
   const matches: PIIMatch[] = [];
   const seen = new Set<string>();
 
-  const structuralPatterns: [RegExp, number][] = [
+  const structuralPatterns: [RegExp, number, ((raw: string) => boolean)?][] = [
     [/\+\d{1,3}[\s.-]*\(?\d{1,5}\)?[\s.-]*\d{1,5}[\s.-]*\d{1,5}(?:[\s.-]*\d{1,5})?(?:[\s.-]*\d{1,5})?(?!\d)/g, 0.9],
     [/(?<!\d)00\d{2,3}[\s.-]*\(?\d{1,5}\)?[\s.-]*\d{1,5}[\s.-]*\d{1,5}(?:[\s.-]*\d{1,5})?(?!\d)/g, 0.85],
     [/(?<!\d)\(0?\d{1,5}\)[\s.-]*\d{2,5}[\s.-]*\d{2,5}(?:[\s.-]*\d{1,5})?(?!\d)/g, 0.85],
     [/(?<!\d)0\d{1,4}[\s.-]+\d{2,5}[\s.-]+\d{2,5}(?:[\s.-]+\d{1,5})?(?!\d)/g, 0.8],
+    // Turkish phone numbers (mobile + landline)
+    [/(?<!\d)(?:\+90[\s.-]*|0[\s.-]?)\(?[2-5]\d{2}\)?[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2}(?!\d)/g, 0.9],
+    // US phone numbers — validated to 10–11 digits to avoid false positives
+    [/(?<!\d)(?:\+1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}(?!\d)/g, 0.8,
+      (raw: string) => { const d = raw.replace(/\D/g, "").length; return d >= 10 && d <= 11; }],
   ];
 
-  for (const [pattern, confidence] of structuralPatterns) {
+  for (const [pattern, confidence, validate] of structuralPatterns) {
     pattern.lastIndex = 0;
     let m;
     while ((m = pattern.exec(text)) !== null) {
+      if (validate && !validate(m[0])) continue;
       addPhoneMatch(m[0], m.index, confidence);
     }
   }
