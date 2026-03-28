@@ -169,6 +169,56 @@ export default defineContentScript({
         }
       }
 
+      // Chunk size for large file scanning — stays safely under Chrome's message limit
+      const CHUNK_SIZE = 512 * 1024; // 512 KB per chunk
+      const CHUNK_OVERLAP = 200; // chars overlap to catch PII at boundaries
+
+      async function scanFileText(fileName: string, text: string): Promise<FileWarningResponse> {
+        // Small enough to send in one message
+        if (text.length <= CHUNK_SIZE) {
+          const raw = await browser.runtime.sendMessage({
+            type: "SCAN_FILE",
+            fileName,
+            text,
+          } as ScanFileMessage);
+          return raw as FileWarningResponse;
+        }
+
+        // Large text — split into overlapping chunks and merge results
+        const allMatches: PIIMatch[] = [];
+        const seenKeys = new Set<string>();
+
+        for (let offset = 0; offset < text.length; offset += CHUNK_SIZE - CHUNK_OVERLAP) {
+          const chunk = text.slice(offset, offset + CHUNK_SIZE);
+
+          const raw = await browser.runtime.sendMessage({
+            type: "SCAN_FILE",
+            fileName,
+            text: chunk,
+          } as ScanFileMessage);
+          const res = raw as FileWarningResponse;
+
+          if (res?.matches) {
+            for (const match of res.matches) {
+              // Deduplicate matches from overlapping regions using value + adjusted position
+              const adjustedStart = match.startIndex + offset;
+              const key = `${match.type}:${adjustedStart}:${match.value}`;
+              if (!seenKeys.has(key)) {
+                seenKeys.add(key);
+                allMatches.push({ ...match, startIndex: adjustedStart, endIndex: match.endIndex + offset });
+              }
+            }
+          }
+        }
+
+        return {
+          type: "FILE_WARNING",
+          fileName,
+          piiCount: allMatches.length,
+          matches: allMatches,
+        };
+      }
+
       async function handleFileUpload(e: Event) {
         const input = e.target as HTMLInputElement;
         const files = input.files;
@@ -176,28 +226,12 @@ export default defineContentScript({
 
         for (const file of Array.from(files)) {
           try {
-            // Extract text in the content script (has access to File + dynamic imports)
             const text = await extractText(file);
             if (!text) continue;
 
-            // Guard against Chrome's ~64MB message size limit (UTF-16 doubles ASCII size)
-            const MAX_MESSAGE_TEXT_SIZE = 1 * 1024 * 1024; // 1 MB
-            if (text.length > MAX_MESSAGE_TEXT_SIZE) {
-              console.warn(`[PDFcensor] File "${file.name}" text too large to scan (${text.length} chars)`);
-              toast.showWarning(0);
-              continue;
-            }
+            const response = await scanFileText(file.name, text);
 
-            const message: ScanFileMessage = {
-              type: "SCAN_FILE",
-              fileName: file.name,
-              text,
-            };
-
-            const raw = await browser.runtime.sendMessage(message);
-            const response = raw as FileWarningResponse;
-
-            if (response && response.type === "FILE_WARNING" && response.piiCount > 0) {
+            if (response && response.piiCount > 0) {
               toast.showFileWarning({
                 fileName: response.fileName,
                 piiCount: response.piiCount,
