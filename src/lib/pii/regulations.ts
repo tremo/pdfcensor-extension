@@ -3,8 +3,8 @@ import type { RegulationProfile, RegulationType, PIIType } from "./types";
 const ALL_TYPES: PIIType[] = [
   "email","phone","iban","creditCard","passport","names","address","dateOfBirth",
   "ipAddress","macAddress","cryptoWallet","gpsCoordinates",
-  "tcKimlik","trPhone","trPlate","trVKN","trSGK","trDriverLicense",
-  "ssn","itin","usPhone","usDriverLicense","usPassport",
+  "tcKimlik","trPlate","trVKN","trSGK","trDriverLicense",
+  "ssn","itin","usDriverLicense","usPassport",
   "ukNHS","ukNINO","dePersonalausweis","deSteuerID","frNIR","esNIF","esDNI",
   "itCodiceFiscale","nlBSN","plPESEL","sePersonnummer","ptNIF",
   "brCPF","brCNPJ",
@@ -20,7 +20,7 @@ export const regulations: Record<RegulationType, RegulationProfile> = {
   KVKK: {
     name: "KVKK", country: "TR",
     patterns: [
-      "tcKimlik","trPhone","trPlate","trVKN","trSGK","trDriverLicense",
+      "tcKimlik","trPlate","trVKN","trSGK","trDriverLicense",
       "email","iban","creditCard","names","address","dateOfBirth",
       "ipAddress","phone","passport",
     ],
@@ -40,7 +40,7 @@ export const regulations: Record<RegulationType, RegulationProfile> = {
   HIPAA: {
     name: "HIPAA", country: "US",
     patterns: [
-      "ssn","names","email","usPhone","address","dateOfBirth",
+      "ssn","names","email","phone","address","dateOfBirth",
       "ipAddress","usDriverLicense","usPassport",
     ],
     description: "Health Insurance Portability and Accountability Act (US)",
@@ -48,7 +48,7 @@ export const regulations: Record<RegulationType, RegulationProfile> = {
   CCPA: {
     name: "CCPA", country: "US",
     patterns: [
-      "ssn","itin","email","usPhone","creditCard","names","dateOfBirth",
+      "ssn","itin","email","phone","creditCard","names","dateOfBirth",
       "ipAddress","usDriverLicense","usPassport","address",
     ],
     description: "California Consumer Privacy Act (US)",

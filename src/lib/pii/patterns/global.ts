@@ -66,6 +66,10 @@ export function detectPhone(text: string, pageIndex: number): PIIMatch[] {
     [/(?<!\d)00\d{2,3}[\s.-]*\(?\d{1,5}\)?[\s.-]*\d{1,5}[\s.-]*\d{1,5}(?:[\s.-]*\d{1,5})?(?!\d)/g, 0.85],
     [/(?<!\d)\(0?\d{1,5}\)[\s.-]*\d{2,5}[\s.-]*\d{2,5}(?:[\s.-]*\d{1,5})?(?!\d)/g, 0.85],
     [/(?<!\d)0\d{1,4}[\s.-]+\d{2,5}[\s.-]+\d{2,5}(?:[\s.-]+\d{1,5})?(?!\d)/g, 0.8],
+    // Turkish phone numbers (mobile + landline)
+    [/(?<!\d)(?:\+90[\s.-]*|0[\s.-]?)\(?[2-5]\d{2}\)?[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2}(?!\d)/g, 0.9],
+    // US phone numbers
+    [/(?:\+1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/g, 0.8],
   ];
 
   for (const [pattern, confidence] of structuralPatterns) {

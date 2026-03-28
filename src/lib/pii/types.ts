@@ -14,7 +14,6 @@ export type PIIType =
   | "gpsCoordinates"
   // Turkey
   | "tcKimlik"
-  | "trPhone"
   | "trPlate"
   | "trVKN"
   | "trSGK"
@@ -22,7 +21,6 @@ export type PIIType =
   // US
   | "ssn"
   | "itin"
-  | "usPhone"
   | "usDriverLicense"
   | "usPassport"
   // EU — Country-specific national IDs
@@ -97,7 +95,6 @@ export const PII_LABELS: Record<PIIType, string> = {
   gpsCoordinates: "GPS Koordinat",
   // Turkey
   tcKimlik: "TC Kimlik",
-  trPhone: "TR Telefon",
   trPlate: "TR Plaka",
   trVKN: "Vergi Kimlik No",
   trSGK: "SGK No",
@@ -105,7 +102,6 @@ export const PII_LABELS: Record<PIIType, string> = {
   // US
   ssn: "SSN",
   itin: "ITIN",
-  usPhone: "US Telefon",
   usDriverLicense: "US Ehliyet",
   usPassport: "US Pasaport",
   // EU

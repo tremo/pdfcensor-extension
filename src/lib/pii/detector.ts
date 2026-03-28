@@ -2,9 +2,9 @@ import type { PIIMatch, PIIType, PIIDetectionResult } from "./types";
 // Global
 import { detectEmail, detectIBAN, detectCreditCard, detectPhone, detectAddress, detectDateOfBirth, detectIPAddress, detectMACAddress, detectCryptoWallet, detectGPSCoordinates } from "./patterns/global";
 // Turkey
-import { detectTCKimlik, detectTRPhone, detectTRPassport, detectTRPlate, detectTRVKN, detectTRSGK, detectTRDriverLicense } from "./patterns/turkish";
+import { detectTCKimlik, detectTRPassport, detectTRPlate, detectTRVKN, detectTRSGK, detectTRDriverLicense } from "./patterns/turkish";
 // US
-import { detectSSN, detectITIN, detectUSPhone, detectUSDriverLicense, detectUSPassport } from "./patterns/us";
+import { detectSSN, detectITIN, detectUSDriverLicense, detectUSPassport } from "./patterns/us";
 // EU
 import { detectNHS, detectNINO, detectDEPersonalausweis, detectDESteuerID, detectFRNIR, detectESNIF, detectESDNI, detectITCodiceFiscale, detectNLBSN, detectPLPESEL, detectSEPersonnummer, detectPTNIF } from "./patterns/eu";
 // LATAM
@@ -32,7 +32,6 @@ const detectorMap: Record<PIIType, DetectorFn> = {
   gpsCoordinates: detectGPSCoordinates,
   // Turkey
   tcKimlik: detectTCKimlik,
-  trPhone: detectTRPhone,
   trPlate: detectTRPlate,
   trVKN: detectTRVKN,
   trSGK: detectTRSGK,
@@ -40,7 +39,6 @@ const detectorMap: Record<PIIType, DetectorFn> = {
   // US
   ssn: detectSSN,
   itin: detectITIN,
-  usPhone: detectUSPhone,
   usDriverLicense: detectUSDriverLicense,
   usPassport: detectUSPassport,
   // EU
