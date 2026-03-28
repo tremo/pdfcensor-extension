@@ -38,6 +38,13 @@ export interface UpdateSettingsMessage {
   settings: Partial<ExtensionSettings>;
 }
 
+export interface AuthTokenFoundMessage {
+  type: "AUTH_TOKEN_FOUND";
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
 export type Message =
   | ScanTextMessage
   | ScanFileMessage
@@ -46,7 +53,8 @@ export type Message =
   | LoginMessage
   | LogoutMessage
   | GetUserInfoMessage
-  | UpdateSettingsMessage;
+  | UpdateSettingsMessage
+  | AuthTokenFoundMessage;
 
 // --- Background → Content responses ---
 
@@ -55,6 +63,7 @@ export interface ScanResponse {
   matches: PIIMatch[];
   totalCount: number;
   masked?: string;
+  detectionAction?: DetectionAction;
 }
 
 export interface UsageResponse {
@@ -110,6 +119,9 @@ export const AVAILABLE_PLATFORMS: PlatformOption[] = [
   { id: "generic", label: "Other sites", hostnames: [] },
 ];
 
+/** What to do when PII is detected */
+export type DetectionAction = "warn_only" | "auto_censor" | "block_and_confirm";
+
 export interface ExtensionSettings {
   enabled: boolean;
   regulation: RegulationType;
@@ -122,6 +134,8 @@ export interface ExtensionSettings {
   enabledPiiTypes: PIIType[];
   /** Custom keywords to detect (Pro only) */
   customKeywords: string[];
+  /** What to do when PII is detected */
+  detectionAction: DetectionAction;
 }
 
 export interface UsageData {

@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   enabledPlatforms: ["chatgpt", "claude", "gemini", "copilot"],
   enabledPiiTypes: [],
   customKeywords: [],
+  detectionAction: "warn_only",
 };
 
 const DEFAULT_USAGE: UsageData = {

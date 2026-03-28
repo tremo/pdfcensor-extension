@@ -1,6 +1,6 @@
 import { browser, type Runtime } from "wxt/browser";
 import { getSettings, updateSettings, recordScan } from "../src/lib/storage";
-import { getProStatus, verifyProStatus, login, logout, getUserInfo } from "../src/lib/auth";
+import { getProStatus, verifyProStatus, login, logout, getUserInfo, handleAuthTokenFromContentScript } from "../src/lib/auth";
 import { detectPII } from "../src/lib/pii/detector";
 import { getRegulationPatterns } from "../src/lib/pii/regulations";
 import { maskText } from "../src/lib/masker";
@@ -20,6 +20,7 @@ const ALLOWED_ORIGINS = [
   "https://notion.so",
   "https://app.slack.com",
   "https://discord.com",
+  "https://offlineredact.com",
 ];
 
 // Simple scan lock to prevent race conditions
@@ -115,6 +116,15 @@ async function handleMessage(
       return { type: "USER_INFO", ...info };
     }
 
+    case "AUTH_TOKEN_FOUND": {
+      const success = await handleAuthTokenFromContentScript(
+        message.accessToken,
+        message.refreshToken,
+        message.expiresIn
+      );
+      return { type: "AUTH_TOKEN_RESULT", success };
+    }
+
     default:
       return { type: "ERROR", error: "Unknown message type" };
   }
@@ -177,9 +187,12 @@ async function handleScanText(text: string, senderUrl?: string): Promise<ScanRes
       );
     }
 
-    // Auto-mask if Pro
+    // Auto-mask if Pro and (autoMask setting or auto_censor detection action)
     let masked: string | undefined;
-    if (isPro && settings.autoMask && result.totalCount > 0) {
+    const shouldAutoMask = isPro && result.totalCount > 0 && (
+      settings.autoMask || settings.detectionAction === "auto_censor"
+    );
+    if (shouldAutoMask) {
       masked = maskText(text, result.matches);
     }
 
@@ -188,6 +201,7 @@ async function handleScanText(text: string, senderUrl?: string): Promise<ScanRes
       matches: result.matches,
       totalCount: result.totalCount,
       masked,
+      detectionAction: settings.detectionAction,
     };
   } finally {
     scanInProgress = false;
