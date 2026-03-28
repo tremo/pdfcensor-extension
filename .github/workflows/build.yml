@@ -71,7 +71,7 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: offlineredact-firefox-v${{ steps.version.outputs.ver }}
-          path: .output/firefox-mv*/
+          path: .output/firefox-mv2/
           retention-days: 30
 
       - name: Upload release zips
