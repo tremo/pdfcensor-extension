@@ -2,15 +2,19 @@
  * Extension Auth Module — Pro verification
  *
  * The extension runs on a different origin so it cannot access
- * offlineredact.com cookies. Token-based auth flow instead:
+ * offlineredact.com cookies via document.cookie. Uses chrome.cookies
+ * API instead (works with HttpOnly cookies too).
  *
  * LOGIN FLOW:
  *   1. User clicks "Log in" in the popup
  *   2. A new tab opens to offlineredact.com/{locale}/login
- *   3. Content script on offlineredact.com detects Supabase session
- *      in localStorage after successful login
- *   4. Tokens are sent to background script and stored in browser.storage.local
+ *   3. Background script polls chrome.cookies for Supabase auth cookie
+ *   4. When session cookie found, tokens are extracted and stored
  *   5. Login tab is automatically closed
+ *
+ * AUTO-DETECT:
+ *   - On startup and periodically, the extension checks if the user
+ *     is already logged in on offlineredact.com by reading cookies
  *
  * PRO VERIFICATION:
  *   1. Background worker uses chrome.alarms for periodic (1 hour) verify
@@ -19,7 +23,7 @@
  *
  * TOKEN REFRESH:
  *   - When access token expires, /api/extension/refresh proxy endpoint is used
- *   - If refresh also fails, user must log in again
+ *   - If refresh also fails, tries to re-read cookies from offlineredact.com
  */
 
 import { browser } from "wxt/browser";
@@ -28,7 +32,7 @@ import { getLocale } from "./i18n";
 const API_BASE = "https://offlineredact.com";
 const VERIFY_ENDPOINT = `${API_BASE}/api/extension/verify`;
 const REFRESH_ENDPOINT = `${API_BASE}/api/extension/refresh`;
-const PRO_CACHE_TTL = 3600000; // 1 saat
+const PRO_CACHE_TTL = 3600000; // 1 hour
 
 // ─── Token Storage ───────────────────────────────────────────
 
@@ -63,20 +67,154 @@ export async function isLoggedIn(): Promise<boolean> {
   return tokens !== null;
 }
 
-// ─── Login Flow ──────────────────────────────────────────────
+// ─── Cookie-based Session Detection ─────────────────────────
 
 /**
- * Pending login resolver — background script resolves this when
- * the offlineredact-auth content script sends AUTH_TOKEN_FOUND.
+ * Read Supabase auth session from offlineredact.com cookies using
+ * chrome.cookies API. This works with HttpOnly cookies too.
+ *
+ * @supabase/ssr stores session as:
+ *   - Single cookie: sb-{ref}-auth-token = JSON
+ *   - Chunked: sb-{ref}-auth-token.0, .1, .2, ... = JSON parts
  */
+export async function readSessionFromCookies(): Promise<{
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+} | null> {
+  try {
+    const allCookies = await browser.cookies.getAll({
+      url: "https://offlineredact.com",
+    });
+
+    // Find sb-{ref}-auth-token cookies
+    const authCookies = allCookies.filter(
+      (c: { name: string }) => c.name.startsWith("sb-") && c.name.includes("-auth-token")
+    );
+
+    if (authCookies.length === 0) return null;
+
+    // Sort: try non-chunked first, then chunked (.0, .1, ...)
+    const single = authCookies.find(
+      (c: { name: string }) => /^sb-.+-auth-token$/.test(c.name)
+    );
+
+    let sessionJson: string | null = null;
+
+    if (single) {
+      sessionJson = (single as { value: string }).value;
+    } else {
+      // Chunked cookies — reassemble in order
+      const chunks = authCookies
+        .filter((c: { name: string }) => /^sb-.+-auth-token\.\d+$/.test(c.name))
+        .sort((a: { name: string }, b: { name: string }) => {
+          const numA = parseInt(a.name.split(".").pop() || "0", 10);
+          const numB = parseInt(b.name.split(".").pop() || "0", 10);
+          return numA - numB;
+        });
+
+      if (chunks.length > 0) {
+        sessionJson = chunks.map((c: { value: string }) => c.value).join("");
+      }
+    }
+
+    if (!sessionJson) return null;
+
+    return parseSessionJson(sessionJson);
+  } catch (error) {
+    console.error("[OfflineRedact] Cookie read failed:", error);
+    return null;
+  }
+}
+
+/**
+ * Try to parse session JSON. Handles both plain JSON and base64-encoded JSON.
+ */
+function parseSessionJson(raw: string): {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+} | null {
+  // Try plain JSON first
+  let data = tryParseJson(raw);
+
+  // Try base64 decode if plain JSON fails
+  if (!data) {
+    try {
+      const decoded = atob(raw);
+      data = tryParseJson(decoded);
+    } catch {
+      // not base64
+    }
+  }
+
+  // Try URL-decoded JSON
+  if (!data) {
+    try {
+      const decoded = decodeURIComponent(raw);
+      data = tryParseJson(decoded);
+    } catch {
+      // not URL-encoded
+    }
+  }
+
+  if (!data) return null;
+
+  const accessToken = data.access_token;
+  const refreshToken = data.refresh_token;
+  const expiresIn = data.expires_in || 3600;
+
+  if (accessToken && refreshToken) {
+    return { accessToken, refreshToken, expiresIn };
+  }
+
+  return null;
+}
+
+function tryParseJson(str: string): Record<string, any> | null {
+  try {
+    const obj = JSON.parse(str);
+    if (obj && typeof obj === "object") return obj;
+  } catch {
+    // not JSON
+  }
+  return null;
+}
+
+/**
+ * Try to detect an existing session from offlineredact.com cookies.
+ * If found, stores tokens and verifies Pro status.
+ * Returns true if session was detected and tokens were stored.
+ */
+export async function tryDetectSessionFromCookies(): Promise<boolean> {
+  const session = await readSessionFromCookies();
+  if (!session) return false;
+
+  // Check if we already have valid tokens — don't overwrite
+  const existing = await getTokens();
+  if (existing && existing.expiresAt > Date.now() + 300000) {
+    return true; // already have valid tokens
+  }
+
+  await saveTokens({
+    accessToken: session.accessToken,
+    refreshToken: session.refreshToken,
+    expiresAt: Date.now() + session.expiresIn * 1000,
+  });
+
+  await verifyProStatus();
+  return true;
+}
+
+// ─── Login Flow ──────────────────────────────────────────────
+
 let loginResolver: ((success: boolean) => void) | null = null;
 let loginTabId: number | null = null;
+let loginPollTimer: ReturnType<typeof setInterval> | null = null;
 
 export async function login(): Promise<boolean> {
   try {
-    // Open offlineredact.com/{locale}/login in a new tab
-    // The backend requires a locale prefix (e.g. /en/login, /tr/login)
-    const locale = getLocale(); // "en" or "tr"
+    const locale = getLocale();
     const tab = await browser.tabs.create({
       url: `${API_BASE}/${locale}/login`,
       active: true,
@@ -84,13 +222,45 @@ export async function login(): Promise<boolean> {
 
     loginTabId = tab.id ?? null;
 
-    // Wait for the content script on offlineredact.com to detect login
     return new Promise<boolean>((resolve) => {
       loginResolver = resolve;
 
-      // Timeout after 5 minutes — user may close the tab
+      // Poll cookies every 2 seconds to detect login
+      loginPollTimer = setInterval(async () => {
+        const session = await readSessionFromCookies();
+        if (session) {
+          // Login detected!
+          clearLoginPoll();
+
+          await saveTokens({
+            accessToken: session.accessToken,
+            refreshToken: session.refreshToken,
+            expiresAt: Date.now() + session.expiresIn * 1000,
+          });
+
+          await verifyProStatus();
+
+          // Close the login tab
+          if (loginTabId !== null) {
+            try {
+              await browser.tabs.remove(loginTabId);
+            } catch {
+              // Tab may already be closed
+            }
+            loginTabId = null;
+          }
+
+          if (loginResolver === resolve) {
+            loginResolver = null;
+            resolve(true);
+          }
+        }
+      }, 2000);
+
+      // Timeout after 5 minutes
       setTimeout(() => {
         if (loginResolver === resolve) {
+          clearLoginPoll();
           loginResolver = null;
           loginTabId = null;
           resolve(false);
@@ -103,9 +273,16 @@ export async function login(): Promise<boolean> {
   }
 }
 
+function clearLoginPoll() {
+  if (loginPollTimer) {
+    clearInterval(loginPollTimer);
+    loginPollTimer = null;
+  }
+}
+
 /**
  * Called by background script when AUTH_TOKEN_FOUND message arrives
- * from the offlineredact-auth content script.
+ * from the offlineredact-auth content script (fallback path).
  */
 export async function handleAuthTokenFromContentScript(
   accessToken: string,
@@ -119,7 +296,6 @@ export async function handleAuthTokenFromContentScript(
       expiresAt: Date.now() + expiresIn * 1000,
     });
 
-    // Verify Pro status immediately
     await verifyProStatus();
 
     // Close the login tab
@@ -133,6 +309,7 @@ export async function handleAuthTokenFromContentScript(
     }
 
     // Resolve the pending login promise
+    clearLoginPoll();
     if (loginResolver) {
       loginResolver(true);
       loginResolver = null;
@@ -155,14 +332,6 @@ export async function logout(): Promise<void> {
 
 // ─── Token Refresh ───────────────────────────────────────────
 
-/**
- * Token yenileme — web app'teki server-side proxy endpoint'i kullanılır.
- *
- * NOT: Direkt Supabase GoTrue endpoint'ine istek ATILMAZ çünkü:
- *   - pdfcensor.com Supabase'i proxy etmiyor
- *   - Supabase URL extension'da expose edilmemeli
- *   - Server-side proxy daha güvenli (CORS, rate limit)
- */
 async function refreshAccessToken(): Promise<boolean> {
   const tokens = await getTokens();
   if (!tokens?.refreshToken) return false;
@@ -176,7 +345,8 @@ async function refreshAccessToken(): Promise<boolean> {
 
     if (!response.ok) {
       console.error("[OfflineRedact] Token refresh failed:", response.status);
-      return false;
+      // If refresh fails, try to re-read from cookies
+      return tryDetectSessionFromCookies();
     }
 
     const data = await response.json();
@@ -195,20 +365,23 @@ async function refreshAccessToken(): Promise<boolean> {
   }
 }
 
-/**
- * Geçerli bir access token döndürür.
- * Süresi dolmuşsa refresh dener, o da başarısızsa null döner.
- */
 export async function getValidAccessToken(): Promise<string | null> {
-  const tokens = await getTokens();
-  if (!tokens) return null;
+  let tokens = await getTokens();
 
-  // Token henüz geçerliyse direkt dön (5 dk buffer)
+  // No tokens stored — try to detect from cookies
+  if (!tokens) {
+    const detected = await tryDetectSessionFromCookies();
+    if (!detected) return null;
+    tokens = await getTokens();
+    if (!tokens) return null;
+  }
+
+  // Token still valid (5 min buffer)
   if (tokens.expiresAt > Date.now() + 300000) {
     return tokens.accessToken;
   }
 
-  // Refresh dene
+  // Try refresh
   const refreshed = await refreshAccessToken();
   if (!refreshed) return null;
 
@@ -218,10 +391,6 @@ export async function getValidAccessToken(): Promise<string | null> {
 
 // ─── Pro Status Verification ─────────────────────────────────
 
-/**
- * pdfcensor.com/api/extension/verify çağırarak Pro durumunu kontrol eder.
- * Sonucu 1 saat cache'ler.
- */
 export async function verifyProStatus(): Promise<boolean> {
   const accessToken = await getValidAccessToken();
   if (!accessToken) return false;
@@ -263,9 +432,6 @@ export async function verifyProStatus(): Promise<boolean> {
   }
 }
 
-/**
- * Cache'den Pro durumunu oku. Cache expired ise verify çağır.
- */
 export async function getProStatus(): Promise<boolean> {
   const result = await browser.storage.local.get("proStatus") as Record<string, any>;
   const cached = result.proStatus as ProStatusCache | undefined;
@@ -285,7 +451,11 @@ export async function getUserInfo(): Promise<{
 }> {
   const tokens = await getTokens();
   if (!tokens) {
-    return { isLoggedIn: false, isPro: false, email: null, subscriptionExpiresAt: null };
+    // Try auto-detect from cookies before giving up
+    const detected = await tryDetectSessionFromCookies();
+    if (!detected) {
+      return { isLoggedIn: false, isPro: false, email: null, subscriptionExpiresAt: null };
+    }
   }
 
   const result = await browser.storage.local.get("proStatus") as Record<string, any>;
