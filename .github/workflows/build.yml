@@ -55,9 +55,9 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.ver }}"
           mkdir -p release
-          cp .output/*-chrome.zip "release/offlineredact-chrome-v${VERSION}.zip"
-          cp .output/*-chrome.zip "release/offlineredact-edge-v${VERSION}.zip"
-          cp .output/*-firefox.zip "release/offlineredact-firefox-v${VERSION}.zip"
+          cp .output/*chrome*.zip "release/offlineredact-chrome-v${VERSION}.zip"
+          cp .output/*chrome*.zip "release/offlineredact-edge-v${VERSION}.zip"
+          cp .output/*firefox*.zip "release/offlineredact-firefox-v${VERSION}.zip"
 
       # Always upload artifacts so you can download from any push
       - name: Upload Chrome extension
@@ -71,7 +71,7 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: offlineredact-firefox-v${{ steps.version.outputs.ver }}
-          path: .output/firefox-mv3/
+          path: .output/firefox-mv*/
           retention-days: 30
 
       - name: Upload release zips
