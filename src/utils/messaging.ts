@@ -10,8 +10,7 @@ export interface ScanTextMessage {
 export interface ScanFileMessage {
   type: "SCAN_FILE";
   fileName: string;
-  fileData: ArrayBuffer;
-  mimeType: string;
+  text: string;
 }
 
 export interface CheckUsageMessage {

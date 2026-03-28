@@ -14,7 +14,7 @@ export async function scanFile(
   return scanText(text, options);
 }
 
-async function extractText(file: File): Promise<string> {
+export async function extractText(file: File): Promise<string> {
   const type = file.type;
   const name = file.name.toLowerCase();
 
@@ -45,8 +45,6 @@ async function extractText(file: File): Promise<string> {
  * pdf.js is loaded dynamically from the extension bundle.
  */
 async function extractPdfText(file: File): Promise<string> {
-  // Dynamic import — pdf.js must be added as a dependency
-  // @ts-expect-error pdfjs-dist is loaded at runtime from extension bundle
   const pdfjsLib = await import("pdfjs-dist");
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -56,7 +54,7 @@ async function extractPdfText(file: File): Promise<string> {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
     const text = content.items
-      .map((item: { str?: string }) => item.str || "")
+      .map((item) => ("str" in item ? item.str : ""))
       .join(" ");
     pages.push(text);
   }
@@ -69,7 +67,6 @@ async function extractPdfText(file: File): Promise<string> {
  * Parses document.xml for <w:t> text nodes.
  */
 async function extractDocxText(file: File): Promise<string> {
-  // Dynamic import — jszip must be added as a dependency
   const JSZip = (await import("jszip")).default;
   const arrayBuffer = await file.arrayBuffer();
   const zip = await JSZip.loadAsync(arrayBuffer);
