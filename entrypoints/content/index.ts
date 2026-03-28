@@ -180,6 +180,14 @@ export default defineContentScript({
             const text = await extractText(file);
             if (!text) continue;
 
+            // Guard against Chrome's ~64MB message size limit (UTF-16 doubles ASCII size)
+            const MAX_MESSAGE_TEXT_SIZE = 1 * 1024 * 1024; // 1 MB
+            if (text.length > MAX_MESSAGE_TEXT_SIZE) {
+              console.warn(`[PDFcensor] File "${file.name}" text too large to scan (${text.length} chars)`);
+              toast.showWarning(0);
+              continue;
+            }
+
             const message: ScanFileMessage = {
               type: "SCAN_FILE",
               fileName: file.name,
