@@ -6,10 +6,11 @@
  *
  * LOGIN FLOW:
  *   1. User clicks "Log in" in the popup
- *   2. browser.identity.launchWebAuthFlow() opens offlineredact.com/login
- *   3. After login, offlineredact.com/auth/extension-callback redirects
- *      with Supabase access_token and refresh_token in the URL hash
- *   4. Extension stores tokens in browser.storage.local
+ *   2. A new tab opens to offlineredact.com/{locale}/login
+ *   3. Content script on offlineredact.com detects Supabase session
+ *      in localStorage after successful login
+ *   4. Tokens are sent to background script and stored in browser.storage.local
+ *   5. Login tab is automatically closed
  *
  * PRO VERIFICATION:
  *   1. Background worker uses chrome.alarms for periodic (1 hour) verify
@@ -22,6 +23,7 @@
  */
 
 import { browser } from "wxt/browser";
+import { getLocale } from "./i18n";
 
 const API_BASE = "https://offlineredact.com";
 const VERIFY_ENDPOINT = `${API_BASE}/api/extension/verify`;
@@ -72,9 +74,11 @@ let loginTabId: number | null = null;
 
 export async function login(): Promise<boolean> {
   try {
-    // Open offlineredact.com/login in a new tab
+    // Open offlineredact.com/{locale}/login in a new tab
+    // The backend requires a locale prefix (e.g. /en/login, /tr/login)
+    const locale = getLocale(); // "en" or "tr"
     const tab = await browser.tabs.create({
-      url: `${API_BASE}/login`,
+      url: `${API_BASE}/${locale}/login`,
       active: true,
     });
 

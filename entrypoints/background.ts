@@ -5,6 +5,7 @@ import { detectPII } from "../src/lib/pii/detector";
 import { getRegulationPatterns } from "../src/lib/pii/regulations";
 import { maskText } from "../src/lib/masker";
 import type { Message, ScanResponse, UsageResponse, FileWarningResponse } from "../src/utils/messaging";
+import { detectLocale } from "../src/lib/i18n";
 
 const PRO_CHECK_ALARM = "pro-status-check";
 
@@ -27,6 +28,9 @@ const ALLOWED_ORIGINS = [
 let scanInProgress = false;
 
 export default defineBackground(() => {
+  // Detect locale early so auth.ts login() can use getLocale()
+  detectLocale();
+
   browser.runtime.onMessage.addListener(
     (message: unknown, sender: Runtime.MessageSender) => {
       if (!isValidSender(sender)) {
