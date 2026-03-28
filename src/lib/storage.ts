@@ -8,6 +8,9 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   customPiiTypes: [],
   autoMask: false,
   showNotifications: true,
+  enabledPlatforms: ["chatgpt", "claude", "gemini", "copilot"],
+  enabledPiiTypes: [],
+  customKeywords: [],
 };
 
 const DEFAULT_USAGE: UsageData = {

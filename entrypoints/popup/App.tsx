@@ -25,7 +25,7 @@ export default function App() {
   if (!settings) {
     return (
       <div className="flex items-center justify-center h-full p-8">
-        <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full" />
+        <div className="animate-spin w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full" />
       </div>
     );
   }
@@ -35,9 +35,13 @@ export default function App() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
         <div className="flex items-center gap-2">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L3 6v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V6L12 2z" fill="#14b8a6"/>
+            <path d="M10 15.5l-3.5-3.5 1.41-1.41L10 12.67l5.59-5.59L17 8.5l-7 7z" fill="white"/>
+          </svg>
           <span className="text-lg font-bold">PDFcensor</span>
           {usage?.isPro && (
-            <span className="text-xs bg-blue-600 px-1.5 py-0.5 rounded font-medium">PRO</span>
+            <span className="text-xs bg-teal-500 px-1.5 py-0.5 rounded font-medium">PRO</span>
           )}
         </div>
         <Toggle
@@ -59,7 +63,7 @@ export default function App() {
             onClick={() => setTab(t)}
             className={`flex-1 py-2 text-sm font-medium transition-colors ${
               tab === t
-                ? "text-blue-400 border-b-2 border-blue-400"
+                ? "text-teal-400 border-b-2 border-teal-400"
                 : "text-gray-500 hover:text-gray-300"
             }`}
           >
