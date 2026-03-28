@@ -97,20 +97,20 @@ export type PlatformId =
 export interface PlatformOption {
   id: PlatformId;
   label: string;
-  hostname: string;
+  hostnames: string[];
 }
 
 export const AVAILABLE_PLATFORMS: PlatformOption[] = [
-  { id: "chatgpt", label: "ChatGPT (OpenAI)", hostname: "chatgpt.com" },
-  { id: "claude", label: "Claude (Anthropic)", hostname: "claude.ai" },
-  { id: "gemini", label: "Gemini (Google)", hostname: "gemini.google.com" },
-  { id: "copilot", label: "Copilot (Microsoft)", hostname: "copilot.microsoft.com" },
-  { id: "gmail", label: "Gmail", hostname: "mail.google.com" },
-  { id: "outlook", label: "Outlook", hostname: "outlook.live.com" },
-  { id: "notion", label: "Notion", hostname: "notion.so" },
-  { id: "slack", label: "Slack", hostname: "app.slack.com" },
-  { id: "discord", label: "Discord", hostname: "discord.com" },
-  { id: "generic", label: "Diğer siteler", hostname: "" },
+  { id: "chatgpt", label: "ChatGPT (OpenAI)", hostnames: ["chatgpt.com", "chat.openai.com"] },
+  { id: "claude", label: "Claude (Anthropic)", hostnames: ["claude.ai"] },
+  { id: "gemini", label: "Gemini (Google)", hostnames: ["gemini.google.com"] },
+  { id: "copilot", label: "Copilot (Microsoft)", hostnames: ["copilot.microsoft.com"] },
+  { id: "gmail", label: "Gmail", hostnames: ["mail.google.com"] },
+  { id: "outlook", label: "Outlook", hostnames: ["outlook.live.com", "outlook.office.com"] },
+  { id: "notion", label: "Notion", hostnames: ["notion.so"] },
+  { id: "slack", label: "Slack", hostnames: ["app.slack.com"] },
+  { id: "discord", label: "Discord", hostnames: ["discord.com"] },
+  { id: "generic", label: "Diğer siteler", hostnames: [] },
 ];
 
 export interface ExtensionSettings {
