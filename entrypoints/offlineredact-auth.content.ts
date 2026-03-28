@@ -88,7 +88,25 @@ export default defineContentScript({
     }
 
     /**
+     * Decode a base64url-encoded string to UTF-8.
+     * Base64url uses '-' instead of '+', '_' instead of '/', and no padding.
+     */
+    function base64urlDecode(str: string): string {
+      let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+      const pad = base64.length % 4;
+      if (pad === 2) base64 += "==";
+      else if (pad === 3) base64 += "=";
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return new TextDecoder().decode(bytes);
+    }
+
+    /**
      * Try to parse a JSON string as a Supabase session object.
+     * Handles plain JSON and base64url-encoded format (Supabase SSR v0.5+).
      */
     function tryParseSession(raw: string | undefined): {
       accessToken: string;
@@ -96,8 +114,19 @@ export default defineContentScript({
       expiresIn: number;
     } | null {
       if (!raw) return null;
+
+      // Supabase SSR v0.5+ stores cookies as "base64-" + base64url(JSON)
+      let jsonStr = raw;
+      if (raw.startsWith("base64-")) {
+        try {
+          jsonStr = base64urlDecode(raw.substring(7));
+        } catch {
+          // not valid base64url, try as-is
+        }
+      }
+
       try {
-        const data = JSON.parse(raw);
+        const data = JSON.parse(jsonStr);
         // Supabase session can be the object directly or nested
         const accessToken =
           data.access_token ||
