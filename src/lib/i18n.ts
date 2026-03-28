@@ -151,12 +151,16 @@ export type TranslationKey = keyof (typeof translations)["en"];
 
 let currentLocale: Locale = "en";
 
-/** Detect locale from browser. Call once at init. */
+/** Detect locale from browser. Call once at init. Safe for service workers. */
 export function detectLocale(): Locale {
-  const lang = (navigator.language || "en").toLowerCase();
-  if (lang.startsWith("tr")) {
-    currentLocale = "tr";
-  } else {
+  try {
+    const lang = (navigator?.language || "en").toLowerCase();
+    if (lang.startsWith("tr")) {
+      currentLocale = "tr";
+    } else {
+      currentLocale = "en";
+    }
+  } catch {
     currentLocale = "en";
   }
   return currentLocale;
