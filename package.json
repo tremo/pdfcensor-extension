@@ -1,5 +1,5 @@
 {
-  "name": "pdfcensor-extension",
+  "name": "offlineredact-extension",
   "version": "1.0.0",
   "private": true,
   "type": "module",
