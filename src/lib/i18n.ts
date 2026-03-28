@@ -36,10 +36,8 @@ const translations = {
     addKeywordPlaceholder: "Enter keyword...",
     add: "Add",
     customKeywordsProCta: "Upgrade to Pro for custom keywords →",
-    autoMask: "Auto Masking",
-    autoMaskDesc: "Automatically mask when PII detected",
     notifications: "Notifications",
-    notificationsDesc: "Show warning when PII detected",
+    notificationsDesc: "Show info notifications while censoring",
     otherSites: "Other sites",
     // Stats
     scans: "Scans",
@@ -106,10 +104,8 @@ const translations = {
     addKeywordPlaceholder: "Kelime girin...",
     add: "Ekle",
     customKeywordsProCta: "Özel kelime eklemek için Pro'ya geçin →",
-    autoMask: "Otomatik Maskeleme",
-    autoMaskDesc: "PII tespit edildiğinde otomatik maskele",
     notifications: "Bildirimler",
-    notificationsDesc: "PII tespit edildiğinde uyarı göster",
+    notificationsDesc: "Sansürleme sırasında bilgi bildirimleri göster",
     otherSites: "Diğer siteler",
     // Stats
     scans: "Tarama",

@@ -6,7 +6,6 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   enabled: true,
   regulation: "COMPREHENSIVE",
   customPiiTypes: [],
-  autoMask: false,
   showNotifications: true,
   enabledPlatforms: ["chatgpt", "claude", "gemini", "copilot"],
   enabledPiiTypes: [],

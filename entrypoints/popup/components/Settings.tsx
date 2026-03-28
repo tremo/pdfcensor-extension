@@ -6,6 +6,7 @@ import { regulations } from "../../../src/lib/pii/regulations";
 import { PII_LABELS } from "../../../src/lib/pii/types";
 import type { RegulationType, PIIType } from "../../../src/lib/pii/types";
 import { t } from "../../../src/lib/i18n";
+import Collapsible from "./Collapsible";
 
 interface SettingsProps {
   settings: ExtensionSettings;
@@ -53,7 +54,7 @@ export default function Settings({ settings, onUpdate, isPro }: SettingsProps) {
 
   return (
     <div className="space-y-5">
-      {/* Regulation selector */}
+      {/* 1. Regulation selector */}
       <div>
         <label className="text-sm text-gray-400 block mb-1">{t("regulationProfile")}</label>
         <select
@@ -75,52 +76,7 @@ export default function Settings({ settings, onUpdate, isPro }: SettingsProps) {
         </select>
       </div>
 
-      {/* Platform selection */}
-      <div>
-        <label className="text-sm text-gray-400 block mb-2">{t("activePlatforms")}</label>
-        <div className="space-y-1.5">
-          {AVAILABLE_PLATFORMS.map((platform) => (
-            <label
-              key={platform.id}
-              className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-900 rounded px-2 py-1.5 transition-colors"
-            >
-              <input
-                type="checkbox"
-                checked={(settings.enabledPlatforms || []).includes(platform.id)}
-                onChange={() => togglePlatform(platform.id)}
-                className="w-4 h-4 rounded border-gray-600 accent-teal-500"
-              />
-              <span className="text-gray-200">
-                {platform.id === "generic" ? t("otherSites") : platform.label}
-              </span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* PII type selection */}
-      <div>
-        <label className="text-sm text-gray-400 block mb-1">{t("detectionTypes")}</label>
-        <p className="text-xs text-gray-600 mb-2">{t("detectionTypesHint")}</p>
-        <div className="max-h-48 overflow-y-auto bg-gray-900 rounded-lg p-2 space-y-1">
-          {regulationTypes.map((type) => (
-            <label
-              key={type}
-              className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-800 rounded px-2 py-1 transition-colors"
-            >
-              <input
-                type="checkbox"
-                checked={(settings.enabledPiiTypes || []).includes(type)}
-                onChange={() => togglePiiType(type)}
-                className="w-3.5 h-3.5 rounded border-gray-600 accent-teal-500"
-              />
-              <span className="text-gray-300">{PII_LABELS[type] || type}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* Detection action */}
+      {/* 2. Detection action */}
       <div>
         <label className="text-sm text-gray-400 block mb-1">{t("detectionAction")}</label>
         <p className="text-xs text-gray-600 mb-2">{t("detectionActionDesc")}</p>
@@ -171,7 +127,50 @@ export default function Settings({ settings, onUpdate, isPro }: SettingsProps) {
         </div>
       </div>
 
-      {/* Custom keywords (Pro only) */}
+      {/* 3. Platform selection */}
+      <div>
+        <label className="text-sm text-gray-400 block mb-2">{t("activePlatforms")}</label>
+        <div className="space-y-1.5">
+          {AVAILABLE_PLATFORMS.map((platform) => (
+            <label
+              key={platform.id}
+              className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-900 rounded px-2 py-1.5 transition-colors"
+            >
+              <input
+                type="checkbox"
+                checked={(settings.enabledPlatforms || []).includes(platform.id)}
+                onChange={() => togglePlatform(platform.id)}
+                className="w-4 h-4 rounded border-gray-600 accent-teal-500"
+              />
+              <span className="text-gray-200">
+                {platform.id === "generic" ? t("otherSites") : platform.label}
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* 4. Notifications toggle */}
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-sm font-medium">{t("notifications")}</div>
+          <div className="text-xs text-gray-500">{t("notificationsDesc")}</div>
+        </div>
+        <button
+          onClick={() => update({ showNotifications: !settings.showNotifications })}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+            settings.showNotifications ? "bg-teal-500" : "bg-gray-600"
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              settings.showNotifications ? "translate-x-6" : "translate-x-1"
+            }`}
+          />
+        </button>
+      </div>
+
+      {/* 5. Custom keywords (Pro only) */}
       <div>
         <div className="flex items-center gap-2 mb-1">
           <label className="text-sm text-gray-400">{t("customKeywords")}</label>
@@ -229,50 +228,25 @@ export default function Settings({ settings, onUpdate, isPro }: SettingsProps) {
         )}
       </div>
 
-      {/* Auto-mask toggle */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-sm font-medium">{t("autoMask")}</div>
-          <div className="text-xs text-gray-500">{t("autoMaskDesc")}</div>
+      {/* 6. PII type selection (collapsible) */}
+      <Collapsible title={t("detectionTypes")} hint={t("detectionTypesHint")}>
+        <div className="max-h-48 overflow-y-auto space-y-1">
+          {regulationTypes.map((type) => (
+            <label
+              key={type}
+              className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-800 rounded px-2 py-1 transition-colors"
+            >
+              <input
+                type="checkbox"
+                checked={(settings.enabledPiiTypes || []).includes(type)}
+                onChange={() => togglePiiType(type)}
+                className="w-3.5 h-3.5 rounded border-gray-600 accent-teal-500"
+              />
+              <span className="text-gray-300">{PII_LABELS[type] || type}</span>
+            </label>
+          ))}
         </div>
-        <button
-          onClick={() => isPro && update({ autoMask: !settings.autoMask })}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            !isPro
-              ? "bg-gray-700 cursor-not-allowed opacity-50"
-              : settings.autoMask
-                ? "bg-teal-500"
-                : "bg-gray-600"
-          }`}
-          disabled={!isPro}
-        >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              settings.autoMask ? "translate-x-6" : "translate-x-1"
-            }`}
-          />
-        </button>
-      </div>
-
-      {/* Notifications toggle */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-sm font-medium">{t("notifications")}</div>
-          <div className="text-xs text-gray-500">{t("notificationsDesc")}</div>
-        </div>
-        <button
-          onClick={() => update({ showNotifications: !settings.showNotifications })}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            settings.showNotifications ? "bg-teal-500" : "bg-gray-600"
-          }`}
-        >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              settings.showNotifications ? "translate-x-6" : "translate-x-1"
-            }`}
-          />
-        </button>
-      </div>
+      </Collapsible>
     </div>
   );
 }

@@ -64,6 +64,7 @@ export default defineContentScript({
       let scanState: ScanState = "IDLE";
       let scanDebounceTimer: ReturnType<typeof setTimeout> | null = null;
       let currentDetectionAction: DetectionAction = "warn_only";
+      const showNotifications = settingsRes?.settings?.showNotifications ?? true;
       const toast = createToast();
 
       const scanText = (text: string) => {
@@ -88,12 +89,16 @@ export default defineContentScript({
               adapter.setMessageText(response.masked);
               pendingMatches = [];
               scanState = "MASKED";
-              toast.showWarning(response.totalCount);
-              // Auto-hide after 2 seconds
-              setTimeout(() => toast.hide(), 2000);
+              if (showNotifications) {
+                toast.showWarning(response.totalCount);
+                // Auto-hide after 2 seconds
+                setTimeout(() => toast.hide(), 2000);
+              }
             } else {
               scanState = "DETECTED";
-              toast.showWarning(response.totalCount);
+              if (showNotifications) {
+                toast.showWarning(response.totalCount);
+              }
             }
           } else {
             scanState = "IDLE";
@@ -132,7 +137,7 @@ export default defineContentScript({
 
         // warn_only mode — show warning but allow send
         if (currentDetectionAction === "warn_only") {
-          if (scanState === "DETECTED") {
+          if (scanState === "DETECTED" && showNotifications) {
             toast.showWarning(pendingMatches.length);
           }
           return true; // don't block
