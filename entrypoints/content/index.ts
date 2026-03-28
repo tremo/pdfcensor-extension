@@ -1,7 +1,8 @@
 import { browser } from "wxt/browser";
 import { getAdapter } from "../../src/adapters";
 import { createToast } from "../../src/ui/toast";
-import type { ScanResponse, ScanTextMessage } from "../../src/utils/messaging";
+import type { ScanResponse, ScanTextMessage, ScanFileMessage, FileWarningResponse, ExtensionSettings, PlatformId } from "../../src/utils/messaging";
+import { AVAILABLE_PLATFORMS } from "../../src/utils/messaging";
 import type { PIIMatch } from "../../src/lib/pii/types";
 
 /**
@@ -15,6 +16,22 @@ import type { PIIMatch } from "../../src/lib/pii/types";
  */
 type ScanState = "IDLE" | "SCANNING" | "DETECTED" | "MASKED";
 
+/** Check if the current hostname is enabled in settings */
+function isPlatformEnabled(hostname: string, enabledPlatforms: PlatformId[]): boolean {
+  // If no platforms configured, allow all
+  if (!enabledPlatforms || enabledPlatforms.length === 0) return true;
+
+  const platform = AVAILABLE_PLATFORMS.find((p) =>
+    p.hostname && hostname.includes(p.hostname)
+  );
+
+  // If it's a known platform, check if it's enabled
+  if (platform) return enabledPlatforms.includes(platform.id);
+
+  // Unknown platform — check if "generic" is enabled
+  return enabledPlatforms.includes("generic");
+}
+
 export default defineContentScript({
   matches: [
     "https://chatgpt.com/*",
@@ -22,10 +39,22 @@ export default defineContentScript({
     "https://claude.ai/*",
     "https://gemini.google.com/*",
     "https://copilot.microsoft.com/*",
+    "https://mail.google.com/*",
+    "https://outlook.live.com/*",
+    "https://notion.so/*",
+    "https://app.slack.com/*",
+    "https://discord.com/*",
   ],
   runAt: "document_idle",
-  main() {
+  async main() {
     try {
+      // Check if this platform is enabled in settings
+      const settingsRes = await browser.runtime.sendMessage({ type: "GET_SETTINGS" }).catch(() => null) as { settings?: ExtensionSettings } | null;
+      if (settingsRes?.settings) {
+        const { enabledPlatforms } = settingsRes.settings;
+        if (!isPlatformEnabled(window.location.hostname, enabledPlatforms)) return;
+      }
+
       const adapter = getAdapter(window.location.hostname);
       if (!adapter) return;
 
@@ -130,11 +159,76 @@ export default defineContentScript({
         return false; // block send
       });
 
+      // --- File upload interception ---
+      function watchFileInputs() {
+        const fileInput = adapter.getFileInput();
+        if (fileInput && !fileInput.dataset.pdfcensorWatched) {
+          fileInput.dataset.pdfcensorWatched = "true";
+          fileInput.addEventListener("change", handleFileUpload);
+        }
+      }
+
+      async function handleFileUpload(e: Event) {
+        const input = e.target as HTMLInputElement;
+        const files = input.files;
+        if (!files || files.length === 0) return;
+
+        for (const file of Array.from(files)) {
+          // Support txt, csv, pdf, docx
+          const name = file.name.toLowerCase();
+          const supported =
+            name.endsWith(".txt") || name.endsWith(".csv") ||
+            name.endsWith(".pdf") || name.endsWith(".docx") ||
+            file.type.startsWith("text/");
+
+          if (!supported) continue;
+
+          try {
+            const arrayBuffer = await file.arrayBuffer();
+            const message: ScanFileMessage = {
+              type: "SCAN_FILE",
+              fileName: file.name,
+              fileData: arrayBuffer,
+              mimeType: file.type,
+            };
+
+            const raw = await browser.runtime.sendMessage(message);
+            const response = raw as FileWarningResponse;
+
+            if (response && response.type === "FILE_WARNING" && response.piiCount > 0) {
+              toast.showFileWarning({
+                fileName: response.fileName,
+                piiCount: response.piiCount,
+                matches: response.matches,
+                onUpgradePro: () => {
+                  window.open("https://pdfcensor.com/pricing", "_blank");
+                },
+                onDismiss: () => {
+                  toast.hide();
+                },
+              });
+            }
+          } catch (err) {
+            console.error("[PDFcensor] File scan failed:", err);
+          }
+        }
+      }
+
+      // Watch for file inputs (poll because they can appear dynamically)
+      watchFileInputs();
+      const fileInputPoll = setInterval(watchFileInputs, 2000);
+
+      // Also observe DOM for dynamically added file inputs
+      const fileInputObserver = new MutationObserver(() => watchFileInputs());
+      fileInputObserver.observe(document.body, { childList: true, subtree: true });
+
       // Cleanup on navigation
       window.addEventListener("beforeunload", () => {
         cleanup();
         cleanupIntercept();
         toast.destroy();
+        clearInterval(fileInputPoll);
+        fileInputObserver.disconnect();
         if (scanDebounceTimer) clearTimeout(scanDebounceTimer);
       });
     } catch (err) {

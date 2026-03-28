@@ -1,10 +1,10 @@
 import { browser, type Runtime } from "wxt/browser";
-import { getSettings, incrementUsage, getUsage, recordScan } from "../src/lib/storage";
+import { getSettings, updateSettings, incrementUsage, getUsage, recordScan } from "../src/lib/storage";
 import { getProStatus, verifyProStatus, login, logout, getUserInfo } from "../src/lib/auth";
 import { detectPII } from "../src/lib/pii/detector";
 import { getRegulationPatterns } from "../src/lib/pii/regulations";
 import { maskText } from "../src/lib/masker";
-import type { Message, ScanResponse, UsageResponse } from "../src/utils/messaging";
+import type { Message, ScanResponse, UsageResponse, FileWarningResponse } from "../src/utils/messaging";
 
 const FREE_DAILY_LIMIT = 5;
 const FREE_PII_TYPES = ["email", "phone", "tcKimlik"] as const;
@@ -17,6 +17,11 @@ const ALLOWED_ORIGINS = [
   "https://claude.ai",
   "https://gemini.google.com",
   "https://copilot.microsoft.com",
+  "https://mail.google.com",
+  "https://outlook.live.com",
+  "https://notion.so",
+  "https://app.slack.com",
+  "https://discord.com",
 ];
 
 // Simple scan lock to prevent race conditions on usage counter
@@ -87,6 +92,14 @@ async function handleMessage(
       }
       return handleScanText(message.text, sender.url);
 
+    case "SCAN_FILE":
+      return handleScanFile(message.fileData, message.fileName, message.mimeType, sender.url);
+
+    case "UPDATE_SETTINGS": {
+      const updated = await updateSettings(message.settings);
+      return { type: "SETTINGS", settings: updated };
+    }
+
     case "CHECK_USAGE":
       return handleCheckUsage();
 
@@ -141,7 +154,9 @@ async function handleScanText(text: string, senderUrl?: string): Promise<ScanRes
     }
 
     // Determine which PII types to scan
-    let piiTypes = getRegulationPatterns(settings.regulation);
+    let piiTypes = settings.enabledPiiTypes && settings.enabledPiiTypes.length > 0
+      ? settings.enabledPiiTypes
+      : getRegulationPatterns(settings.regulation);
     if (!isPro) {
       piiTypes = piiTypes.filter((t) =>
         (FREE_PII_TYPES as readonly string[]).includes(t)
@@ -149,6 +164,28 @@ async function handleScanText(text: string, senderUrl?: string): Promise<ScanRes
     }
 
     const result = detectPII(text, 0, piiTypes);
+
+    // Custom keyword detection (Pro only)
+    if (isPro && settings.customKeywords && settings.customKeywords.length > 0) {
+      for (const keyword of settings.customKeywords) {
+        if (!keyword) continue;
+        const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const regex = new RegExp(escaped, "gi");
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+          result.matches.push({
+            type: "names" as any, // Use 'names' as fallback type for custom keywords
+            value: match[0],
+            startIndex: match.index,
+            endIndex: match.index + match[0].length,
+            pageIndex: 0,
+            confidence: 1.0,
+          });
+          result.totalCount += 1;
+          result.byType["customKeyword"] = (result.byType["customKeyword"] || 0) + 1;
+        }
+      }
+    }
 
     // Increment usage counter + record stats
     if (result.totalCount > 0) {
@@ -180,6 +217,89 @@ async function handleScanText(text: string, senderUrl?: string): Promise<ScanRes
   } finally {
     scanInProgress = false;
   }
+}
+
+/**
+ * Handle file scan — NO daily limit applied to file scanning.
+ * Extracts text from the file buffer and runs PII detection.
+ */
+async function handleScanFile(
+  fileData: ArrayBuffer,
+  fileName: string,
+  mimeType: string,
+  senderUrl?: string
+): Promise<FileWarningResponse> {
+  const settings = await getSettings();
+
+  // Extract text from file data based on mime type
+  let text = "";
+  const name = fileName.toLowerCase();
+
+  if (mimeType.startsWith("text/") || name.endsWith(".txt") || name.endsWith(".csv")) {
+    text = new TextDecoder().decode(fileData);
+  } else if (mimeType === "application/pdf" || name.endsWith(".pdf")) {
+    // PDF extraction via pdfjs-dist
+    try {
+      // @ts-expect-error pdfjs-dist loaded at runtime
+      const pdfjsLib = await import("pdfjs-dist");
+      const pdf = await pdfjsLib.getDocument({ data: fileData }).promise;
+      const pages: string[] = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        pages.push(content.items.map((item: { str?: string }) => item.str || "").join(" "));
+      }
+      text = pages.join("\n\n");
+    } catch {
+      text = "";
+    }
+  } else if (
+    mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    name.endsWith(".docx")
+  ) {
+    try {
+      const JSZip = (await import("jszip")).default;
+      const zip = await JSZip.loadAsync(fileData);
+      const docXml = await zip.file("word/document.xml")?.async("string");
+      if (docXml) {
+        const parts: string[] = [];
+        const regex = /<w:t[^>]*>([\s\S]*?)<\/w:t>/g;
+        let match;
+        while ((match = regex.exec(docXml)) !== null) {
+          parts.push(match[1]);
+        }
+        text = parts.join(" ");
+      }
+    } catch {
+      text = "";
+    }
+  }
+
+  if (!text) {
+    return { type: "FILE_WARNING", fileName, piiCount: 0, matches: [] };
+  }
+
+  // Determine PII types to scan
+  let piiTypes = settings.enabledPiiTypes.length > 0
+    ? settings.enabledPiiTypes
+    : getRegulationPatterns(settings.regulation);
+
+  const result = detectPII(text, 0, piiTypes);
+
+  // Record stats (no limit check — file scanning is unlimited)
+  if (result.totalCount > 0) {
+    const siteName = senderUrl
+      ? new URL(senderUrl).hostname.replace("www.", "")
+      : "unknown";
+    await recordScan(result.totalCount, 0, result.byType as Record<string, number>, siteName);
+  }
+
+  return {
+    type: "FILE_WARNING",
+    fileName,
+    piiCount: result.totalCount,
+    matches: result.matches,
+  };
 }
 
 async function handleCheckUsage(): Promise<UsageResponse> {

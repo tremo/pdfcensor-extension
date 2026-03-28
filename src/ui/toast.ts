@@ -7,11 +7,20 @@ export interface ToastActions {
   onReview: () => void;
 }
 
+export interface FileWarningActions {
+  fileName: string;
+  piiCount: number;
+  matches: PIIMatch[];
+  onUpgradePro: () => void;
+  onDismiss: () => void;
+}
+
 export interface ToastController {
   show(actions: ToastActions): void;
   showWarning(count: number): void;
   showLimit(): void;
   showDetails(matches: PIIMatch[]): void;
+  showFileWarning(actions: FileWarningActions): void;
   hide(): void;
   destroy(): void;
 }
@@ -101,6 +110,43 @@ const TOAST_STYLES = `
   }
   .detail-type { color: #f59e0b; font-weight: 500; }
   .detail-value { color: #888; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-warning-card {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border: 1px solid #f59e0b;
+  }
+  .file-icon { font-size: 24px; }
+  .file-name { color: #f59e0b; font-weight: 600; font-size: 13px; word-break: break-all; }
+  .file-pii-count {
+    color: #ef4444;
+    font-size: 22px;
+    font-weight: 700;
+    margin: 8px 0;
+  }
+  .file-pii-label { color: #ccc; font-size: 13px; }
+  .btn-pro {
+    background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+    color: white;
+    width: 100%;
+    margin-top: 8px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .btn-dismiss {
+    background: transparent;
+    color: #888;
+    width: 100%;
+    margin-top: 4px;
+    font-size: 12px;
+  }
+  .file-matches-preview {
+    max-height: 120px;
+    overflow-y: auto;
+    margin: 8px 0;
+    padding: 8px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 6px;
+  }
 `;
 
 // Safe DOM element creation helpers (no innerHTML / XSS risk)
@@ -215,6 +261,54 @@ export function createToast(): ToastController {
           list,
         ])
       );
+    },
+
+    showFileWarning(actions: FileWarningActions) {
+      clear();
+
+      const closeBtn = el("button", { className: "toast-close" }, ["×"]);
+      closeBtn.addEventListener("click", actions.onDismiss);
+
+      const matchPreview = el("div", { className: "file-matches-preview" });
+      const shownMatches = actions.matches.slice(0, 5);
+      for (const m of shownMatches) {
+        const truncated = m.value.length > 25 ? m.value.slice(0, 25) + "..." : m.value;
+        matchPreview.appendChild(
+          el("div", { className: "detail-item" }, [
+            el("span", { className: "detail-type" }, [m.type]),
+            el("span", { className: "detail-value" }, [truncated]),
+          ])
+        );
+      }
+      if (actions.matches.length > 5) {
+        matchPreview.appendChild(
+          el("div", { className: "detail-item" }, [
+            el("span", { className: "detail-value" }, [`+${actions.matches.length - 5} daha...`]),
+          ])
+        );
+      }
+
+      const card = el("div", { className: "toast-card file-warning-card" }, [
+        el("div", { className: "toast-header" }, [
+          el("span", { className: "file-icon" }, ["📄"]),
+          el("span", { className: "toast-title" }, ["Dosya Yükleme Uyarısı"]),
+          closeBtn,
+        ]),
+        el("div", { className: "toast-body" }, [
+          el("div", { className: "file-name" }, [actions.fileName]),
+          el("div", { className: "file-pii-count" }, [
+            `${actions.piiCount} kişisel veri tespit edildi!`,
+          ]),
+          el("div", { className: "file-pii-label" }, [
+            "Bu dosyada hassas kişisel veriler bulunuyor. Yüklemeden önce sansürlenmesi önerilir.",
+          ]),
+        ]),
+        ...(actions.piiCount > 0 ? [matchPreview] : []),
+        btn("btn-pro", "🔒 Otomatik Sansürle — Pro'ya Geç", actions.onUpgradePro),
+        btn("btn-dismiss", "Yoksay ve devam et", actions.onDismiss),
+      ]);
+
+      container.appendChild(card);
     },
 
     hide() {
