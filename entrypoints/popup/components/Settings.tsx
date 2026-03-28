@@ -1,6 +1,6 @@
 import { browser } from "wxt/browser";
 import React, { useState } from "react";
-import type { ExtensionSettings, PlatformId } from "../../../src/utils/messaging";
+import type { ExtensionSettings, PlatformId, DetectionAction } from "../../../src/utils/messaging";
 import { AVAILABLE_PLATFORMS } from "../../../src/utils/messaging";
 import { regulations } from "../../../src/lib/pii/regulations";
 import { PII_LABELS } from "../../../src/lib/pii/types";
@@ -115,6 +115,57 @@ export default function Settings({ settings, onUpdate, isPro }: SettingsProps) {
                 className="w-3.5 h-3.5 rounded border-gray-600 accent-teal-500"
               />
               <span className="text-gray-300">{PII_LABELS[type] || type}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Detection action */}
+      <div>
+        <label className="text-sm text-gray-400 block mb-1">{t("detectionAction")}</label>
+        <p className="text-xs text-gray-600 mb-2">{t("detectionActionDesc")}</p>
+        <div className="space-y-1.5 bg-gray-900 rounded-lg p-2">
+          {([
+            { value: "warn_only" as DetectionAction, label: t("warnOnly"), desc: t("warnOnlyDesc"), pro: false },
+            { value: "auto_censor" as DetectionAction, label: t("autoCensor"), desc: t("autoCensorDesc"), pro: true },
+            { value: "block_and_confirm" as DetectionAction, label: t("blockAndConfirm"), desc: t("blockAndConfirmDesc"), pro: true },
+          ]).map((option) => (
+            <label
+              key={option.value}
+              className={`flex items-start gap-2 text-sm cursor-pointer hover:bg-gray-800 rounded px-2 py-2 transition-colors ${
+                !isPro && option.pro ? "opacity-60" : ""
+              }`}
+              onClick={(e) => {
+                if (!isPro && option.pro) {
+                  e.preventDefault();
+                  window.open("https://offlineredact.com/en/pricing", "_blank");
+                }
+              }}
+            >
+              <input
+                type="radio"
+                name="detectionAction"
+                value={option.value}
+                checked={settings.detectionAction === option.value}
+                onChange={() => {
+                  if (!isPro && option.pro) {
+                    window.open("https://offlineredact.com/en/pricing", "_blank");
+                    return;
+                  }
+                  update({ detectionAction: option.value });
+                }}
+                className="mt-0.5 w-4 h-4 accent-teal-500"
+                disabled={!isPro && option.pro}
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-gray-200">{option.label}</span>
+                  {option.pro && !isPro && (
+                    <span className="text-[10px] bg-teal-600 px-1.5 py-0.5 rounded font-medium text-white">PRO</span>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500">{option.desc}</div>
+              </div>
             </label>
           ))}
         </div>

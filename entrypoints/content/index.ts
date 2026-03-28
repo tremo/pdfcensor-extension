@@ -2,7 +2,7 @@ import { browser } from "wxt/browser";
 import { getAdapter } from "../../src/adapters";
 import { createToast } from "../../src/ui/toast";
 import { extractText } from "../../src/lib/file-scanner";
-import type { ScanResponse, ScanTextMessage, ScanFileMessage, FileWarningResponse, ExtensionSettings, PlatformId } from "../../src/utils/messaging";
+import type { ScanResponse, ScanTextMessage, ScanFileMessage, FileWarningResponse, ExtensionSettings, PlatformId, DetectionAction } from "../../src/utils/messaging";
 import { AVAILABLE_PLATFORMS } from "../../src/utils/messaging";
 import type { PIIMatch } from "../../src/lib/pii/types";
 
@@ -63,6 +63,7 @@ export default defineContentScript({
       let pendingMatches: PIIMatch[] = [];
       let scanState: ScanState = "IDLE";
       let scanDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+      let currentDetectionAction: DetectionAction = "warn_only";
       const toast = createToast();
 
       const scanText = (text: string) => {
@@ -77,10 +78,23 @@ export default defineContentScript({
           }
 
           pendingMatches = response.matches;
+          if (response.detectionAction) {
+            currentDetectionAction = response.detectionAction;
+          }
 
           if (response.totalCount > 0) {
-            scanState = "DETECTED";
-            toast.showWarning(response.totalCount);
+            // auto_censor: apply masked text immediately if available
+            if (currentDetectionAction === "auto_censor" && response.masked) {
+              adapter.setMessageText(response.masked);
+              pendingMatches = [];
+              scanState = "MASKED";
+              toast.showWarning(response.totalCount);
+              // Auto-hide after 2 seconds
+              setTimeout(() => toast.hide(), 2000);
+            } else {
+              scanState = "DETECTED";
+              toast.showWarning(response.totalCount);
+            }
           } else {
             scanState = "IDLE";
             toast.hide();
@@ -116,18 +130,53 @@ export default defineContentScript({
         // Allow send if no PII or already masked
         if (scanState === "IDLE" || scanState === "MASKED") return true;
 
-        // If scanning, block and wait
+        // warn_only mode — show warning but allow send
+        if (currentDetectionAction === "warn_only") {
+          if (scanState === "DETECTED") {
+            toast.showWarning(pendingMatches.length);
+          }
+          return true; // don't block
+        }
+
+        // auto_censor mode — if masked text wasn't applied yet, block briefly
+        if (currentDetectionAction === "auto_censor") {
+          if (scanState === "SCANNING") {
+            toast.showWarning(0);
+            return false; // wait for scan to finish
+          }
+          // DETECTED but not masked — request mask and auto-apply
+          if (scanState === "DETECTED") {
+            const msg: ScanTextMessage = { type: "SCAN_TEXT", text: adapter.getMessageText() };
+            browser.runtime.sendMessage(msg).then((raw: unknown) => {
+              const response = raw as ScanResponse;
+              if (response?.masked) {
+                adapter.setMessageText(response.masked);
+                pendingMatches = [];
+                scanState = "MASKED";
+                toast.hide();
+                // Re-click send after masking
+                setTimeout(() => adapter.getSendButton()?.click(), 50);
+              }
+            }).catch((err: unknown) => {
+              console.error("[OfflineRedact] Auto-mask request failed:", err);
+            });
+            return false;
+          }
+          return true;
+        }
+
+        // block_and_confirm mode — block send and show options
         if (scanState === "SCANNING") {
-          toast.showWarning(0); // "Taranıyor..."
+          toast.showWarning(0); // "Scanning..."
           return false;
         }
 
-        // DETECTED state — block send and show options
+        // DETECTED state — block send and show mask/ignore/review
         toast.show({
           matchCount: pendingMatches.length,
           onMask: () => {
-            const message: ScanTextMessage = { type: "SCAN_TEXT", text: adapter.getMessageText() };
-            browser.runtime.sendMessage(message).then((raw: unknown) => {
+            const msg: ScanTextMessage = { type: "SCAN_TEXT", text: adapter.getMessageText() };
+            browser.runtime.sendMessage(msg).then((raw: unknown) => {
               const response = raw as ScanResponse;
               if (response?.masked) {
                 adapter.setMessageText(response.masked);

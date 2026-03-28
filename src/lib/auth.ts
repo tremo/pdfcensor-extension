@@ -63,42 +63,84 @@ export async function isLoggedIn(): Promise<boolean> {
 
 // ─── Login Flow ──────────────────────────────────────────────
 
+/**
+ * Pending login resolver — background script resolves this when
+ * the offlineredact-auth content script sends AUTH_TOKEN_FOUND.
+ */
+let loginResolver: ((success: boolean) => void) | null = null;
+let loginTabId: number | null = null;
+
 export async function login(): Promise<boolean> {
   try {
-    const redirectUrl = browser.identity.getRedirectURL("callback");
-    const authUrl =
-      `${API_BASE}/login?` +
-      `redirect_to=${encodeURIComponent(redirectUrl)}` +
-      `&source=extension`;
-
-    const responseUrl = await browser.identity.launchWebAuthFlow({
-      url: authUrl,
-      interactive: true,
+    // Open offlineredact.com/login in a new tab
+    const tab = await browser.tabs.create({
+      url: `${API_BASE}/login`,
+      active: true,
     });
 
-    if (!responseUrl) return false;
+    loginTabId = tab.id ?? null;
 
-    // Parse tokens from URL hash
-    const url = new URL(responseUrl);
-    const hash = new URLSearchParams(url.hash.slice(1));
-    const accessToken = hash.get("access_token");
-    const refreshToken = hash.get("refresh_token");
-    const expiresIn = parseInt(hash.get("expires_in") || "3600", 10);
+    // Wait for the content script on offlineredact.com to detect login
+    return new Promise<boolean>((resolve) => {
+      loginResolver = resolve;
 
-    if (!accessToken || !refreshToken) return false;
+      // Timeout after 5 minutes — user may close the tab
+      setTimeout(() => {
+        if (loginResolver === resolve) {
+          loginResolver = null;
+          loginTabId = null;
+          resolve(false);
+        }
+      }, 300000);
+    });
+  } catch (error) {
+    console.error("[OfflineRedact] Login failed:", error);
+    return false;
+  }
+}
 
+/**
+ * Called by background script when AUTH_TOKEN_FOUND message arrives
+ * from the offlineredact-auth content script.
+ */
+export async function handleAuthTokenFromContentScript(
+  accessToken: string,
+  refreshToken: string,
+  expiresIn: number
+): Promise<boolean> {
+  try {
     await saveTokens({
       accessToken,
       refreshToken,
       expiresAt: Date.now() + expiresIn * 1000,
     });
 
-    // Immediately verify Pro status
+    // Verify Pro status immediately
     await verifyProStatus();
+
+    // Close the login tab
+    if (loginTabId !== null) {
+      try {
+        await browser.tabs.remove(loginTabId);
+      } catch {
+        // Tab may already be closed
+      }
+      loginTabId = null;
+    }
+
+    // Resolve the pending login promise
+    if (loginResolver) {
+      loginResolver(true);
+      loginResolver = null;
+    }
 
     return true;
   } catch (error) {
-    console.error("[OfflineRedact] Login failed:", error);
+    console.error("[OfflineRedact] Token handling failed:", error);
+    if (loginResolver) {
+      loginResolver(false);
+      loginResolver = null;
+    }
     return false;
   }
 }

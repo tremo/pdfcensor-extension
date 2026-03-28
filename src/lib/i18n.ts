@@ -63,6 +63,16 @@ const translations = {
     fileContainsPii: "This file contains sensitive personal data. Redacting before upload is recommended.",
     autoRedactPro: "Auto Redact — Go to Pro",
     dismissAndContinue: "Dismiss and continue",
+    // Detection action
+    detectionAction: "Detection Action",
+    detectionActionDesc: "What to do when PII is detected",
+    warnOnly: "Warn Only",
+    warnOnlyDesc: "Show notification, don't block sending",
+    autoCensor: "Auto Censor",
+    autoCensorDesc: "Automatically mask PII before sending",
+    blockAndConfirm: "Block & Confirm",
+    blockAndConfirmDesc: "Block sending until you review",
+    proRequired: "Pro Required",
   },
   tr: {
     // General tab
@@ -123,6 +133,16 @@ const translations = {
     fileContainsPii: "Bu dosyada hassas kişisel veriler bulunuyor. Yüklemeden önce sansürlenmesi önerilir.",
     autoRedactPro: "Otomatik Sansürle — Pro'ya Geç",
     dismissAndContinue: "Yoksay ve devam et",
+    // Detection action
+    detectionAction: "Tespit Aksiyonu",
+    detectionActionDesc: "PII tespit edildiğinde ne yapılsın",
+    warnOnly: "Sadece Uyar",
+    warnOnlyDesc: "Bildirim göster, gönderimi engelleme",
+    autoCensor: "Otomatik Sansürle",
+    autoCensorDesc: "Göndermeden önce PII'yi otomatik maskele",
+    blockAndConfirm: "Durdur ve Onay Al",
+    blockAndConfirmDesc: "İnceleyene kadar gönderimi engelle",
+    proRequired: "Pro Gerekli",
   },
 } as const;
 
