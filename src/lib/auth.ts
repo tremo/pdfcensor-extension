@@ -128,7 +128,10 @@ export async function readSessionFromCookies(): Promise<{
 }
 
 /**
- * Try to parse session JSON. Handles both plain JSON and base64-encoded JSON.
+ * Try to parse session JSON. Handles plain JSON, base64url-encoded (Supabase SSR v0.5+),
+ * legacy base64-encoded, and URL-encoded formats.
+ *
+ * @supabase/ssr v0.5+ stores cookies as: "base64-" + base64url(JSON)
  */
 function parseSessionJson(raw: string): {
   accessToken: string;
@@ -138,7 +141,18 @@ function parseSessionJson(raw: string): {
   // Try plain JSON first
   let data = tryParseJson(raw);
 
-  // Try base64 decode if plain JSON fails
+  // Try Supabase SSR v0.5+ base64url format: "base64-" prefix + base64url encoded JSON
+  if (!data && raw.startsWith("base64-")) {
+    try {
+      const encoded = raw.substring(7); // strip "base64-" prefix
+      const decoded = base64urlDecode(encoded);
+      data = tryParseJson(decoded);
+    } catch {
+      // not valid base64url
+    }
+  }
+
+  // Try standard base64 decode if plain JSON fails
   if (!data) {
     try {
       const decoded = atob(raw);
@@ -169,6 +183,27 @@ function parseSessionJson(raw: string): {
   }
 
   return null;
+}
+
+/**
+ * Decode a base64url-encoded string to UTF-8.
+ * Base64url uses '-' instead of '+', '_' instead of '/', and no padding.
+ */
+function base64urlDecode(str: string): string {
+  // Convert base64url to standard base64
+  let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  // Add padding if needed
+  const pad = base64.length % 4;
+  if (pad === 2) base64 += "==";
+  else if (pad === 3) base64 += "=";
+
+  // Decode base64 to binary string, then decode as UTF-8
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new TextDecoder().decode(bytes);
 }
 
 function tryParseJson(str: string): Record<string, any> | null {
