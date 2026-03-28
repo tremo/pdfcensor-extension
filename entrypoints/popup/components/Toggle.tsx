@@ -10,7 +10,7 @@ export default function Toggle({ enabled, onChange }: ToggleProps) {
     <button
       onClick={() => onChange(!enabled)}
       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-        enabled ? "bg-blue-600" : "bg-gray-600"
+        enabled ? "bg-teal-500" : "bg-gray-600"
       }`}
       role="switch"
       aria-checked={enabled}

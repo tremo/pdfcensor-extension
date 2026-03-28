@@ -4,7 +4,7 @@ export default defineConfig({
   srcDir: ".",
   modules: ["@wxt-dev/module-react"],
   manifest: {
-    name: "PDFcensor — AI Privacy Guard",
+    name: "OfflineRedact — AI Privacy Guard",
     description:
       "Automatically detects and redacts sensitive personal data (PII) before you send it to AI chatbots like ChatGPT, Claude, Gemini, and more.",
     version: "1.0.0",
@@ -20,7 +20,7 @@ export default defineConfig({
       "https://notion.so/*",
       "https://app.slack.com/*",
       "https://discord.com/*",
-      "https://pdfcensor.com/*",
+      "https://offlineredact.com/*",
     ],
     icons: {
       16: "/icons/icon-16.png",

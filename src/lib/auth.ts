@@ -1,29 +1,29 @@
 /**
- * Extension Auth Module — Pro doğrulama
+ * Extension Auth Module — Pro verification
  *
- * Extension farklı origin'de çalıştığı için pdfcensor.com'un cookie'lerine
- * erişemez. Bunun yerine şu akış kullanılır:
+ * The extension runs on a different origin so it cannot access
+ * offlineredact.com cookies. Token-based auth flow instead:
  *
- * LOGIN AKIŞI:
- *   1. Kullanıcı popup'tan "Giriş Yap" butonuna tıklar
- *   2. browser.identity.launchWebAuthFlow() ile pdfcensor.com/login açılır
- *   3. Login sonrası pdfcensor.com/auth/extension-callback redirect'i
- *      URL hash'inde Supabase access_token ve refresh_token döner
- *   4. Extension token'ları browser.storage.local'e kaydeder
+ * LOGIN FLOW:
+ *   1. User clicks "Log in" in the popup
+ *   2. browser.identity.launchWebAuthFlow() opens offlineredact.com/login
+ *   3. After login, offlineredact.com/auth/extension-callback redirects
+ *      with Supabase access_token and refresh_token in the URL hash
+ *   4. Extension stores tokens in browser.storage.local
  *
- * PRO DOĞRULAMA:
- *   1. Extension background worker chrome.alarms ile periyodik (1 saat) verify çağırır
- *   2. POST /api/extension/verify — Bearer token ile
- *   3. Sonuç cache'lenir (browser.storage.local)
+ * PRO VERIFICATION:
+ *   1. Background worker uses chrome.alarms for periodic (1 hour) verify
+ *   2. POST /api/extension/verify — with Bearer token
+ *   3. Result is cached in browser.storage.local
  *
- * TOKEN YENİLEME:
- *   - Access token süresi dolunca web app'teki /api/extension/refresh proxy endpoint'i kullanılır
- *   - Refresh de başarısız olursa kullanıcı tekrar login yapmalı
+ * TOKEN REFRESH:
+ *   - When access token expires, /api/extension/refresh proxy endpoint is used
+ *   - If refresh also fails, user must log in again
  */
 
 import { browser } from "wxt/browser";
 
-const API_BASE = "https://pdfcensor.com";
+const API_BASE = "https://offlineredact.com";
 const VERIFY_ENDPOINT = `${API_BASE}/api/extension/verify`;
 const REFRESH_ENDPOINT = `${API_BASE}/api/extension/refresh`;
 const PRO_CACHE_TTL = 3600000; // 1 saat
@@ -98,7 +98,7 @@ export async function login(): Promise<boolean> {
 
     return true;
   } catch (error) {
-    console.error("[PDFcensor] Login failed:", error);
+    console.error("[OfflineRedact] Login failed:", error);
     return false;
   }
 }
@@ -129,7 +129,7 @@ async function refreshAccessToken(): Promise<boolean> {
     });
 
     if (!response.ok) {
-      console.error("[PDFcensor] Token refresh failed:", response.status);
+      console.error("[OfflineRedact] Token refresh failed:", response.status);
       return false;
     }
 
@@ -144,7 +144,7 @@ async function refreshAccessToken(): Promise<boolean> {
 
     return true;
   } catch (error) {
-    console.error("[PDFcensor] Token refresh error:", error);
+    console.error("[OfflineRedact] Token refresh error:", error);
     return false;
   }
 }
@@ -195,7 +195,7 @@ export async function verifyProStatus(): Promise<boolean> {
     }
 
     if (!response.ok) {
-      console.error("[PDFcensor] Verify failed:", response.status);
+      console.error("[OfflineRedact] Verify failed:", response.status);
       return false;
     }
 
@@ -212,7 +212,7 @@ export async function verifyProStatus(): Promise<boolean> {
 
     return data.isPro;
   } catch (error) {
-    console.error("[PDFcensor] Verify error:", error);
+    console.error("[OfflineRedact] Verify error:", error);
     return false;
   }
 }

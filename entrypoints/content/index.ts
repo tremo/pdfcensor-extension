@@ -76,12 +76,6 @@ export default defineContentScript({
             return;
           }
 
-          if (response.limitReached) {
-            scanState = "IDLE";
-            toast.showLimit();
-            return;
-          }
-
           pendingMatches = response.matches;
 
           if (response.totalCount > 0) {
@@ -92,7 +86,7 @@ export default defineContentScript({
             toast.hide();
           }
         }).catch((err: unknown) => {
-          console.error("[PDFcensor] Scan failed:", err);
+          console.error("[OfflineRedact] Scan failed:", err);
           scanState = "IDLE";
         });
       };
@@ -113,7 +107,7 @@ export default defineContentScript({
           if (scanDebounceTimer) clearTimeout(scanDebounceTimer);
           scanDebounceTimer = setTimeout(() => scanText(text), 300);
         } catch (err) {
-          console.error("[PDFcensor] Observer error:", err);
+          console.error("[OfflineRedact] Observer error:", err);
         }
       });
 
@@ -142,7 +136,7 @@ export default defineContentScript({
                 toast.hide();
               }
             }).catch((err: unknown) => {
-              console.error("[PDFcensor] Mask request failed:", err);
+              console.error("[OfflineRedact] Mask request failed:", err);
             });
           },
           onIgnore: () => {
@@ -163,8 +157,8 @@ export default defineContentScript({
       // --- File upload interception ---
       function watchFileInputs() {
         const fileInput = adapter.getFileInput();
-        if (fileInput && !fileInput.dataset.pdfcensorWatched) {
-          fileInput.dataset.pdfcensorWatched = "true";
+        if (fileInput && !fileInput.dataset.offlineredactWatched) {
+          fileInput.dataset.offlineredactWatched = "true";
           fileInput.addEventListener("change", handleFileUpload);
         }
       }
@@ -237,7 +231,7 @@ export default defineContentScript({
                 piiCount: response.piiCount,
                 matches: response.matches,
                 onUpgradePro: () => {
-                  window.open("https://pdfcensor.com/pricing", "_blank");
+                  window.open("https://offlineredact.com/en/pricing", "_blank");
                 },
                 onDismiss: () => {
                   toast.hide();
@@ -245,7 +239,7 @@ export default defineContentScript({
               });
             }
           } catch (err) {
-            console.error("[PDFcensor] File scan failed:", err);
+            console.error("[OfflineRedact] File scan failed:", err);
           }
         }
       }
@@ -268,7 +262,7 @@ export default defineContentScript({
         if (scanDebounceTimer) clearTimeout(scanDebounceTimer);
       });
     } catch (err) {
-      console.error("[PDFcensor] Content script init failed:", err);
+      console.error("[OfflineRedact] Content script init failed:", err);
     }
   },
 });
