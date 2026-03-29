@@ -102,6 +102,9 @@ export default defineContentScript({
             }
           } else {
             scanState = "IDLE";
+            // PII count dropped to 0 — reset warning state
+            toast.lastWarningCount = 0;
+            toast.warningDismissed = false;
             toast.hide();
           }
         }).catch((err: unknown) => {
