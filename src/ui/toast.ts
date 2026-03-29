@@ -321,9 +321,10 @@ export function createToast(): ToastController {
     },
 
     showWarning(count: number) {
-      // "Scanning..." (count=0) always shows
       if (count > 0) {
-        // Don't re-show if user dismissed or count hasn't increased
+        // Same count as already shown — don't re-render (avoids re-triggering animation)
+        if (count === this.lastWarningCount && container.firstChild) return;
+        // User dismissed and count hasn't increased — stay hidden
         if (this.warningDismissed && count <= this.lastWarningCount) return;
         this.lastWarningCount = count;
         this.warningDismissed = false;
