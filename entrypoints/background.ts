@@ -195,11 +195,10 @@ async function handleScanText(text: string, senderUrl?: string): Promise<ScanRes
       );
     }
 
-    // Auto-mask if Pro and (autoMask setting or auto_censor detection action)
+    // Auto-mask if Pro and auto_censor detection action
     let masked: string | undefined;
-    const shouldAutoMask = isPro && result.totalCount > 0 && (
-      settings.autoMask || settings.detectionAction === "auto_censor"
-    );
+    const shouldAutoMask = isPro && result.totalCount > 0 &&
+      settings.detectionAction === "auto_censor";
     if (shouldAutoMask) {
       masked = maskText(text, result.matches);
     }

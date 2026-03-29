@@ -126,7 +126,6 @@ export interface ExtensionSettings {
   enabled: boolean;
   regulation: RegulationType;
   customPiiTypes: PIIType[];
-  autoMask: boolean;
   showNotifications: boolean;
   /** Which platforms to actively monitor — empty array = all */
   enabledPlatforms: PlatformId[];
