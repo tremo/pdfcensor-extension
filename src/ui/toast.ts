@@ -24,6 +24,10 @@ export interface ToastController {
   showFileWarning(actions: FileWarningActions): void;
   hide(): void;
   destroy(): void;
+  /** Last warning PII count — used to suppress duplicate warnings */
+  lastWarningCount: number;
+  /** Whether the user dismissed the warning toast */
+  warningDismissed: boolean;
 }
 
 const TOAST_STYLES = `
@@ -51,21 +55,29 @@ const TOAST_STYLES = `
     from { transform: translateY(20px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
   }
-  .brand-bar {
+  @keyframes fadeOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(8px); }
+  }
+  .toast-fadeout {
+    animation: fadeOut 0.4s ease-in forwards;
+  }
+  .brand-strip {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    border-bottom: 1px solid rgba(20, 184, 166, 0.2);
+    gap: 6px;
+    padding: 6px 14px;
+    background: rgba(15, 23, 42, 0.6);
+    border-bottom: 1px solid rgba(20, 184, 166, 0.15);
   }
   .brand-logo { flex-shrink: 0; line-height: 0; }
   .brand-logo svg { display: block; }
   .brand-name {
-    font-size: 13px;
-    font-weight: 700;
+    font-size: 11px;
+    font-weight: 600;
     color: #14b8a6;
     letter-spacing: 0.3px;
+    opacity: 0.8;
     flex: 1;
   }
   .toast-content { padding: 14px 16px; }
@@ -80,13 +92,15 @@ const TOAST_STYLES = `
   .toast-close {
     background: none;
     border: none;
-    color: #888;
+    color: #666;
     cursor: pointer;
-    font-size: 18px;
-    padding: 0;
+    font-size: 14px;
+    padding: 2px 4px;
     line-height: 1;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
   }
-  .toast-close:hover { color: #ccc; }
+  .toast-close:hover { color: #ccc; background: rgba(255,255,255,0.08); }
   .toast-body { margin-bottom: 12px; color: #ccc; }
   .toast-actions { display: flex; gap: 8px; }
   .btn {
@@ -104,19 +118,36 @@ const TOAST_STYLES = `
   .btn-review { background: #2563eb; color: white; }
   .toast-warning {
     background: #1a1a2e;
-    border: 1px solid #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.4);
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 8px 32px rgba(0,0,0,0.4);
     animation: slideIn 0.2s ease-out;
+    display: flex;
+    align-items: center;
+    gap: 0;
   }
-  .toast-warning .brand-bar {
-    border-bottom-color: rgba(245, 158, 11, 0.2);
+  .toast-warning .brand-strip {
+    border-bottom: none;
+    border-right: 1px solid rgba(245, 158, 11, 0.15);
+    padding: 10px 12px;
+    background: rgba(15, 23, 42, 0.6);
+    flex-shrink: 0;
+  }
+  .toast-warning-body {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    padding: 10px 12px;
+    gap: 10px;
   }
   .toast-warning-text {
     color: #f59e0b;
-    padding: 10px 16px;
     font-size: 13px;
+    flex: 1;
+  }
+  .toast-warning .toast-close {
+    flex-shrink: 0;
   }
   .toast-limit {
     background: #ef444422;
@@ -144,8 +175,8 @@ const TOAST_STYLES = `
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
     border: 1px solid #f59e0b;
   }
-  .file-warning-card .brand-bar {
-    border-bottom-color: rgba(245, 158, 11, 0.3);
+  .file-warning-card .brand-strip {
+    border-bottom-color: rgba(245, 158, 11, 0.2);
   }
   .file-icon { font-size: 24px; }
   .file-name { color: #f59e0b; font-weight: 600; font-size: 13px; word-break: break-all; }
@@ -208,21 +239,21 @@ function btn(className: string, text: string, onClick: () => void): HTMLElement 
 /** Inline SVG shield logo matching the extension icon */
 function brandLogo(): HTMLElement {
   const wrapper = el("span", { className: "brand-logo" });
-  wrapper.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  wrapper.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M12 2L4 6v5c0 5.25 3.4 10.15 8 11.4 4.6-1.25 8-6.15 8-11.4V6l-8-4z" fill="#14b8a6"/>
     <path d="M10 14.2l-2.6-2.6L6 13l4 4 8-8-1.4-1.4L10 14.2z" fill="#fff"/>
   </svg>`;
   return wrapper;
 }
 
-/** Brand bar shown at the top of every toast card */
-function brandBar(closeBtn?: HTMLElement): HTMLElement {
+/** Compact brand strip shown at the top of toast cards */
+function brandStrip(closeBtn?: HTMLElement): HTMLElement {
   const children: (Node | string)[] = [
     brandLogo(),
     el("span", { className: "brand-name" }, ["OfflineRedact"]),
   ];
   if (closeBtn) children.push(closeBtn);
-  return el("div", { className: "brand-bar" }, children);
+  return el("div", { className: "brand-strip" }, children);
 }
 
 export function createToast(): ToastController {
@@ -242,19 +273,36 @@ export function createToast(): ToastController {
 
   document.body.appendChild(host);
 
+  let autoHideTimer: ReturnType<typeof setTimeout> | null = null;
+
   function clear() {
+    if (autoHideTimer) { clearTimeout(autoHideTimer); autoHideTimer = null; }
     while (container.firstChild) container.removeChild(container.firstChild);
   }
 
+  /** Fade out current content then clear */
+  function fadeOutAndClear() {
+    const firstChild = container.firstChild as HTMLElement | null;
+    if (!firstChild) return;
+    firstChild.classList.add("toast-fadeout");
+    setTimeout(() => clear(), 400);
+  }
+
   return {
+    lastWarningCount: 0,
+    warningDismissed: false,
+
     show(actions: ToastActions) {
       clear();
+      // Reset warning state when full toast is shown
+      this.lastWarningCount = 0;
+      this.warningDismissed = false;
 
       const closeBtn = el("button", { className: "toast-close" }, ["\u00d7"]);
       closeBtn.addEventListener("click", () => this.hide());
 
       const card = el("div", { className: "toast-card" }, [
-        brandBar(closeBtn),
+        brandStrip(closeBtn),
         el("div", { className: "toast-content" }, [
           el("div", { className: "toast-header" }, [
             el("span", { className: "toast-icon" }, ["\u26a0"]),
@@ -273,15 +321,46 @@ export function createToast(): ToastController {
     },
 
     showWarning(count: number) {
+      // "Scanning..." (count=0) always shows
+      if (count > 0) {
+        // Don't re-show if user dismissed or count hasn't increased
+        if (this.warningDismissed && count <= this.lastWarningCount) return;
+        this.lastWarningCount = count;
+        this.warningDismissed = false;
+      }
+
       clear();
+
       const text = count === 0
         ? `\u26a0 ${t("scanningText")}`
         : `\u26a0 ${t("piiDetectedCheck", { COUNT: count })}`;
+
+      const closeBtn = el("button", { className: "toast-close" }, ["\u00d7"]);
+      const self = this;
+      closeBtn.addEventListener("click", () => {
+        self.warningDismissed = true;
+        fadeOutAndClear();
+      });
+
       const warning = el("div", { className: "toast-warning" }, [
-        brandBar(),
-        el("div", { className: "toast-warning-text" }, [text]),
+        el("div", { className: "brand-strip" }, [
+          brandLogo(),
+          el("span", { className: "brand-name" }, ["OfflineRedact"]),
+        ]),
+        el("div", { className: "toast-warning-body" }, [
+          el("span", { className: "toast-warning-text" }, [text]),
+          closeBtn,
+        ]),
       ]);
       container.appendChild(warning);
+
+      // Auto-fade after 4 seconds (only for non-zero counts)
+      if (count > 0) {
+        autoHideTimer = setTimeout(() => {
+          self.warningDismissed = true;
+          fadeOutAndClear();
+        }, 4000);
+      }
     },
 
     showLimit() {
@@ -308,7 +387,7 @@ export function createToast(): ToastController {
 
       container.appendChild(
         el("div", { className: "toast-card" }, [
-          brandBar(closeBtn),
+          brandStrip(closeBtn),
           el("div", { className: "toast-content" }, [
             el("div", { className: "toast-header" }, [
               el("span", { className: "toast-title" }, [`${t("detectedData")} (${matches.length})`]),
@@ -345,7 +424,7 @@ export function createToast(): ToastController {
       }
 
       const card = el("div", { className: "toast-card file-warning-card" }, [
-        brandBar(closeBtn),
+        brandStrip(closeBtn),
         el("div", { className: "toast-content" }, [
           el("div", { className: "toast-header" }, [
             el("span", { className: "file-icon" }, ["\ud83d\udcc4"]),
