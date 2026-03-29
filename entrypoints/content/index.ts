@@ -180,7 +180,7 @@ export default defineContentScript({
         toast.show({
           matchCount: pendingMatches.length,
           onMask: () => {
-            const msg: ScanTextMessage = { type: "SCAN_TEXT", text: adapter.getMessageText() };
+            const msg: ScanTextMessage = { type: "SCAN_TEXT", text: adapter.getMessageText(), forceMask: true };
             browser.runtime.sendMessage(msg).then((raw: unknown) => {
               const response = raw as ScanResponse;
               if (response?.masked) {

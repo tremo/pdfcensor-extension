@@ -5,6 +5,8 @@ import type { PIIMatch, PIIType, RegulationType } from "../lib/pii/types";
 export interface ScanTextMessage {
   type: "SCAN_TEXT";
   text: string;
+  /** When true, always return masked text (user clicked "Mask" button) */
+  forceMask?: boolean;
 }
 
 export interface ScanFileMessage {

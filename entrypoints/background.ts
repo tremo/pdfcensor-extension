@@ -91,7 +91,7 @@ async function handleMessage(
       if (typeof message.text !== "string") {
         return { type: "ERROR", error: "Invalid text" };
       }
-      return handleScanText(message.text, sender.url);
+      return handleScanText(message.text, sender.url, message.forceMask);
 
     case "SCAN_FILE":
       return handleScanFile(message.text, message.fileName, sender.url);
@@ -138,7 +138,7 @@ async function handleMessage(
   }
 }
 
-async function handleScanText(text: string, senderUrl?: string): Promise<ScanResponse> {
+async function handleScanText(text: string, senderUrl?: string, forceMask?: boolean): Promise<ScanResponse> {
   const settings = await getSettings();
   if (!settings.enabled) {
     return { type: "SCAN_RESULT", matches: [], totalCount: 0 };
@@ -195,11 +195,11 @@ async function handleScanText(text: string, senderUrl?: string): Promise<ScanRes
       );
     }
 
-    // Auto-mask if Pro and auto_censor detection action
+    // Mask text when auto_censor is enabled, or when user explicitly clicked "Mask"
     let masked: string | undefined;
-    const shouldAutoMask = isPro && result.totalCount > 0 &&
-      settings.detectionAction === "auto_censor";
-    if (shouldAutoMask) {
+    const shouldMask = isPro && result.totalCount > 0 &&
+      (settings.detectionAction === "auto_censor" || forceMask);
+    if (shouldMask) {
       masked = maskText(text, result.matches);
     }
 
