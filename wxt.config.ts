@@ -6,7 +6,7 @@ export default defineConfig({
   manifest: {
     name: "OfflineRedact — AI Privacy Guard",
     description:
-      "Automatically detects and redacts sensitive personal data (PII) before you send it to AI chatbots like ChatGPT, Claude, Gemini, and more.",
+      "Automatically detects and redacts sensitive data (PII) before sharing with ChatGPT, Gmail, and other cloud services.",
     version: "1.0.0",
     permissions: ["storage", "activeTab", "alarms", "tabs", "cookies"],
     host_permissions: [
